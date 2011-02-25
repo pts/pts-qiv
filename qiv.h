@@ -25,7 +25,7 @@
 #include <X11/extensions/xf86vmode.h> // for XF86VidModeGetModeLine
 */
 
-#define VERSION "2.2.2"
+#define VERSION "2.2.2-1-pts"
 #define VERSION_FULL "QIV - Quick Image Viewer v2.2.2 - http://qiv.spiegl.de/"
 #define TRASH_DIR ".qiv-trash"
 #define SELECT_DIR ".qiv-select"
