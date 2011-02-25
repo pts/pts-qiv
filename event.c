@@ -17,8 +17,10 @@
 
 static int    jumping;
 static int    extcommand; // [lc]
-static char    jcmd[100];
+static char    jcmd[512];
 static int    jidx;
+static const char *mess_buf[2]={ jcmd, NULL};
+static const char **mess = mess_buf;
 static int    cursor_timeout;
 static gboolean displaying_textwindow = FALSE;
 
@@ -171,7 +173,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
   qiv_image *q = data;
   Window xwindow;
   int move_step;
-  const char *mess[2]={ jcmd, NULL};
 
   // get windows position if not in fullscreen mode
   // (because the user might have moved the window our since last redraw)
@@ -340,7 +341,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
       }
 
       if (jumping || extcommand) {  // [lc] todo: Backspace,
-        if(ev->key.keyval == GDK_Escape) {
+        /* printf("evkey=0x%x modifiers=0x%x\n", ev->key.keyval, ev->key.state); */
+        if(ev->key.keyval == 'q' && ev->key.state & GDK_CONTROL_MASK) {
+          qiv_exit(0);
+          break;
+        } 
+        if(ev->key.keyval == GDK_Escape ||
+          (ev->key.keyval == 'c' && ev->key.state & GDK_CONTROL_MASK)) {
           extcommand = 0;
           jidx = 0;
           displaying_textwindow = FALSE;
@@ -348,22 +355,24 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           break;
         }
         if(ev->key.keyval == GDK_BackSpace) {
-          jidx--;
-          jcmd[jidx]='\0';
+          if (jidx > 0) {
+            jidx--;
+            jcmd[jidx]='\0';
+          }
           qiv_display_text_window(q, "(Sending Command)", mess,
                                   "Press <Return> to send, <Esc> to abort"); // [lc]
           break;
         }
         if((ev->key.keyval == GDK_Return) ||
            (ev->key.keyval == GDK_KP_Enter) ||
-           (jidx == 99)) {     /* 99 digits already typed */
+           (ev->key.keyval == GDK_Tab)) {
           jcmd[jidx] = '\0';
           if (jumping) {
             jump2image(jcmd);
-          qiv_load_image(q);
-          jumping=0;
-        }
-          else {      // extcommand=1
+            qiv_load_image(q);
+            jumping=0;
+          } else {      // extcommand=1
+            int tab_mode = ev->key.keyval == GDK_Tab ? 1 : 0;
             int numlines = 0;
             const char **lines;
 
@@ -371,18 +380,43 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* Hide the text window if it is showing */
             displaying_textwindow = FALSE;
             update_image(q, FULL_REDRAW);
-            run_command(q, jcmd, image_names[image_idx], &numlines, &lines);
-            if (lines && numlines)
+            run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
+            if (!tab_mode && lines && numlines > 1 && lines[1][0] == '\007') {
+              /* Let an error message starting with \007 propagate */
+              ++lines[1];
+              tab_mode = 1;
+            }
+            if (tab_mode) {
+              if (!lines || !numlines) {
+                mess = mess_buf;  // Display jcmd.
+              } else {
+                /* printf("line1=(%s)\n", lines[0]); */  // no newline at the end
+                strncpy(jcmd, lines[0], sizeof(jcmd));
+                jcmd[sizeof(jcmd) - 1] = '\0';
+                jidx = strlen(jcmd);
+                lines[0] = jcmd;
+                mess = lines;
+              }
+              extcommand = 1;
+              // TODO(pts): Make typing faster on a large image.
+              qiv_display_text_window(q, "(Expanded command)", mess,
+                                      "Press <Return> to send, <Esc> to abort"); // [lc]
+            } else if (lines && numlines) {
               qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
+            }
           }
         }
         /* else record keystroke if not null */
-        else if(ev->key.string && *(ev->key.string) != '\0') {
-          jcmd[jidx++]=*(ev->key.string);
-          jcmd[jidx] = '\0';
-          if (extcommand)
-            qiv_display_text_window(q, "(Sending Command)", mess,
-                                    "Press <Return> to send, <Esc> to abort"); // [lc]
+        else {
+          if (ev->key.string && *ev->key.string > 31 &&
+              *ev->key.string < 256 && jidx < sizeof(jcmd) - 1) {
+            // TODO(pts): Add multiple characters (UTF-8).
+            jcmd[jidx++]=*(ev->key.string);
+            jcmd[jidx] = '\0';
+            if (extcommand)
+              qiv_display_text_window(q, "(Sending Command)", mess,
+                                      "Press <Return> to send, <Esc> to abort"); // [lc]
+          }
         }
       } else {
         switch (ev->key.keyval) {
@@ -1004,25 +1038,49 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             if (center) center_image(q);
             update_image(q, FULL_REDRAW);
           break;
-#else
-          case 'X':
+#endif
+
+            /* Run qiv-command '' <image-filename> 1 */
+          case '\t':  // not sent this way
+          case GDK_Tab:
           {
+            const int tab_mode = 1;
             int numlines = 0;
             const char **lines;
-            run_command(q, ev->key.string, image_names[image_idx], &numlines, &lines);
-            if (lines && numlines)
-              qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
+            /* Hide the text window if it is showing */
+            displaying_textwindow = FALSE;
+            update_image(q, FULL_REDRAW);
+            jcmd[0] = '\0';
+            run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
+            if (!lines || !numlines) {
+              mess = mess_buf;  // Display jcmd.
+            } else {
+              /* printf("line1=(%s)\n", lines[0]); */  // no newline at the end
+              strncpy(jcmd, lines[0], sizeof(jcmd));
+              jcmd[sizeof(jcmd) - 1] = '\0';
+              jidx = strlen(jcmd);
+              lines[0] = jcmd;
+              mess = lines;
+            }
+            extcommand = 1;
+            // TODO(pts): Make typing faster on a large image.
+            qiv_display_text_window(q, "(Tab-start command)", mess,
+                                    "Press <Return> to send, <Esc> to abort"); // [lc]
           }
           break;
-#endif
 
             /* run qiv-command */
           case '^':    // special command with options
           {
-            extcommand =1;
+            extcommand = 1;
             jidx = 0;
-            jcmd[jidx++]=*(ev->key.string);
+            // TODO(pts): Add multiple characters (UTF-8).
+            if (ev->key.string && *ev->key.string > 31 &&
+                *ev->key.string < 256) {
+              jcmd[jidx++]=*(ev->key.string);
+            }
             jcmd[jidx] = '\0';
+            mess = mess_buf;
             qiv_display_text_window(q, "(Sending Command)", mess,
                                     "Press <Return> to send, <Esc> to abort"); // [lc]
           }
@@ -1062,8 +1120,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'Z':
           {
             int numlines = 0;
+            const int tab_mode = 0;
             const char **lines;
-            run_command(q, ev->key.string, image_names[image_idx], &numlines, &lines);
+            run_command(q, ev->key.string, tab_mode, image_names[image_idx], &numlines, &lines);
             if (lines && numlines)
               qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
           }

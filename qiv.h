@@ -202,7 +202,7 @@ extern int  move2trash(void);
 extern int  copy2select(void);
 extern int  undelete_image(void);
 extern void jump2image(char *);
-extern void run_command(qiv_image *, char *, char *, int *, const char ***);
+extern void run_command(qiv_image *, char *, int, char *, int *, const char ***);
 extern void finish(int);
 extern void next_image(int);
 extern int checked_atoi(const char *);

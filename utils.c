@@ -234,11 +234,11 @@ int undelete_image()
   return 0;
 }
 
-#define MAXOUTPUTBUFFER 16384
-#define MAXLINES 100
+#define MAXOUTPUTBUFFER 65536
+#define MAXLINES 1024
 
 /* run a command ... */
-void run_command(qiv_image *q, char *n, char *filename, int *numlines, const char ***output)
+void run_command(qiv_image *q, char *n, int tab_mode, char *filename, int *numlines, const char ***output)
 {
   static char nr[100];
   static char *buffer = 0;
@@ -248,8 +248,14 @@ void run_command(qiv_image *q, char *n, char *filename, int *numlines, const cha
   char *newfilename;
   int i;
   struct stat before, after;
+  char tab_mode_extra[2 + 3 * sizeof(int)];
 
   stat(filename, &before);
+  if (tab_mode != 0) {
+    sprintf(tab_mode_extra, " %d", tab_mode);
+  } else {
+    tab_mode_extra[0] = '\0';
+  }
 
   if (!buffer)
     buffer = xmalloc(MAXOUTPUTBUFFER + 1);
@@ -257,7 +263,8 @@ void run_command(qiv_image *q, char *n, char *filename, int *numlines, const cha
   *numlines = 0;
   *output = lines;
 
-  snprintf(infotext, sizeof infotext, "Running: 'qiv-command %s %s'", n, filename);
+  // TODO(pts): Escape ' as '\'' in n and filename here.
+  snprintf(infotext, sizeof infotext, "Running: qiv-command '%s' '%s'%s", n, filename, tab_mode_extra);
 
   snprintf(nr, sizeof nr, "%s", n);
 
@@ -276,7 +283,12 @@ void run_command(qiv_image *q, char *n, char *filename, int *numlines, const cha
     dup2(pipe_stdout[1], 2);
     close(pipe_stdout[1]);
 
-    execlp("qiv-command", "qiv-command", nr, filename, NULL);
+    if (tab_mode != 0) {
+      execlp("qiv-command", "qiv-command", nr, filename, tab_mode_extra + 1,
+             NULL);
+    } else {
+      execlp("qiv-command", "qiv-command", nr, filename, NULL);
+    }
     perror("Error calling qiv-command");
     abort();
   }
