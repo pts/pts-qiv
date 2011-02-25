@@ -35,6 +35,7 @@ static struct option long_options[] =
     {"gamma",            1, NULL, 'g'},
     {"help",             0, NULL, 'h'},
     {"no_statusbar",     0, NULL, 'i'},
+    {"thumbnail",        0, NULL, 'j'},
     {"autorotate",       0, NULL, 'l'},
     {"maxpect",          0, NULL, 'm'},
     {"no_filter",        0, NULL, 'n'},
@@ -67,6 +68,7 @@ static struct option long_options[] =
 };
 
 static int numeric_sort = 0, merged_case_sort = 0, ignore_path_sort = 0;
+int thumbnail = 0;
 
 /* This array makes it easy to sort filenames into merged-case order
  * (e.g. AaBbCcDdEeFf...). */
@@ -231,6 +233,8 @@ void options_read(int argc, char **argv, qiv_image *q)
             case 'h': show_help(argv[0], 0); break;
             case 'i': force_statusbar=0;
                 break;
+            case 'j': thumbnail = 1;
+                break;
             case 'l': autorotate=1;
                 break;
             case 'm': maxpect=1;
@@ -327,6 +331,20 @@ void options_read(int argc, char **argv, qiv_image *q)
                 image_names[images++] = argv[optind++];
             }
         }
+    }
+
+    if (thumbnail) {
+        int i, j;
+        for (i = j = 0; i < images; ++i) {
+            size_t len = strlen(image_names[i]);
+            if (len >= 7 &&
+                0 == memcmp(image_names[i] + len - 7, ".th.jpg", 7)) {
+                /* skip the thumbnail image */
+            } else {
+                image_names[j++] = image_names[i];
+            }
+        }
+        images = j;
     }
 
     if(shuffle) {

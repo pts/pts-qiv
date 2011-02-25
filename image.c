@@ -106,15 +106,56 @@ void qiv_load_image(qiv_image *q)
 {
   struct stat statbuf;
   const char * image_name = image_names[ image_idx];
+  char* th_image_name = NULL;
+  char need_stat = 1;
 
   gettimeofday(&load_before, 0);
 
   if (imlib_context_get_image())
     imlib_free_image();
 
-  stat(image_name, &statbuf);
-  current_mtime = statbuf.st_mtime;
+  q->real_w = q->real_h = -1;
+  q->is_thumbnail = q->has_thumbnail = FALSE;
+  if (thumbnail && fullscreen) {
+    const char* r = image_name + strlen(image_name);
+    const char* p = r;
+    char* th_image_name;
+    size_t prefixlen;
+
+    /* Replace image extension with .th.jpg, save result to th_image_name */
+    while (p != image_name && p[-1] != '/' && p[-1] != '.') {
+      --p;
+    }
+    prefixlen = (p != image_name && p[-1] == '.') ?
+                p - image_name - 1 : r - image_name;
+    th_image_name = xmalloc(prefixlen + 8);
+    memcpy(th_image_name, image_name, prefixlen);
+    strcpy(th_image_name + prefixlen, ".th.jpg");
+    
+    if (0 == stat(th_image_name, &statbuf) &&
+        S_ISREG(statbuf.st_mode)) {
+      q->has_thumbnail = TRUE;
+      if (maxpect) {
+        /* This is fast, reads only the image headers, not the data */
+        Imlib_Image * im = imlib_load_image(image_name);
+        q->is_thumbnail = TRUE;
+        image_name = th_image_name;
+        need_stat = 0;
+        if (im) {
+          imlib_context_set_image(im);
+          q->real_w = imlib_image_get_width();
+          q->real_h = imlib_image_get_height();
+          imlib_free_image();
+        }
+      }
+    }
+  }
+
+  if (0 == (need_stat && stat(image_name, &statbuf)))
+    current_mtime = statbuf.st_mtime;
   Imlib_Image * im = imlib_load_image( (char*)image_name );
+  /* TODO(pts): Display the original image dimensions, not the thumbnail. */
+  free(th_image_name);
 
   if (!im) { /* error */
     q->error = 1;
@@ -471,9 +512,10 @@ void reload_image(qiv_image *q)
   center_image(q);
 }
 
-void check_size(qiv_image *q, gint reset)
-{
-  if (maxpect || (scale_down && (q->orig_w>screen_x || q->orig_h>screen_y))) {
+void check_size(qiv_image *q, gint reset) {
+  if ((maxpect && !thumbnail) ||
+      (maxpect && thumbnail && scale_down && (q->orig_w>screen_x || q->orig_h>screen_y)) ||
+      (scale_down && (q->orig_w>screen_x || q->orig_h>screen_y))) {
     zoom_maxpect(q);
   } else if (reset || (scale_down && (q->win_w<q->orig_w || q->win_h<q->orig_h))) {
     reset_coords(q);
@@ -552,8 +594,12 @@ void update_image(qiv_image *q, int mode)
      }
 
       g_snprintf(q->win_title, sizeof q->win_title,
-                 "qiv: %s (%dx%d) %d%% [%d/%d] b%d/c%d/g%d %s",
-                 image_names[image_idx], q->orig_w, q->orig_h,
+                 "qiv: %s (%dx%d)%s %d%% [%d/%d] b%d/c%d/g%d %s",
+                 image_names[image_idx],
+                 q->real_w >= 0 ? q->real_w : q->orig_w,
+                 q->real_h >= 0 ? q->real_h : q->orig_h,
+                 q->real_w >= 0 && q->real_h >= 0 ? "-" :
+                     thumbnail && !maxpect ? "+" : "",
                  myround((1.0-(q->orig_w - q->win_w)/(double)q->orig_w)*100), image_idx+1, images,
                  q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32, infotext);
       snprintf(infotext, sizeof infotext, "(-)");
@@ -583,8 +629,13 @@ void update_image(qiv_image *q, int mode)
 #endif
 
       g_snprintf(q->win_title, sizeof q->win_title,
-                 "qiv: %s (%dx%d) %1.01fs %d%% [%d/%d] b%d/c%d/g%d %s",
-                 image_names[image_idx], q->orig_w, q->orig_h, load_elapsed+elapsed,
+                 "qiv: %s (%dx%d)%s %1.01fs %d%% [%d/%d] b%d/c%d/g%d %s",
+                 image_names[image_idx],
+                 q->real_w >= 0 ? q->real_w : q->orig_w,
+                 q->real_h >= 0 ? q->real_h : q->orig_h,
+                 q->real_w >= 0 && q->real_h >= 0 ? "-" :
+                     thumbnail && !maxpect ? "+" : "",
+                 load_elapsed+elapsed,
                  myround((1.0-(q->orig_w - q->win_w)/(double)q->orig_w)*100), image_idx+1, images,
                  q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32, infotext);
       snprintf(infotext, sizeof infotext, "(-)");

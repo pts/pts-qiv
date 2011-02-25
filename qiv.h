@@ -58,6 +58,9 @@ typedef struct _qiv_image {
   int error; /* 1 if Imlib couldn't load image */
   gint win_x, win_y, win_w, win_h; /* window co-ordinates */
   gint orig_w, orig_h; /* Size of original image in pixels */
+  gint real_w, real_h; /* Size of real (non-thumbnail image in pixels, or (-1, -1) */
+  gboolean is_thumbnail;
+  gboolean has_thumbnail;
   GdkGC *bg_gc;     /* image window background */
   GdkGC *text_gc;   /* statusbar text color */
   GdkGC *status_gc; /* statusbar background */
@@ -194,6 +197,7 @@ extern void qiv_handle_event(GdkEvent *, gpointer);
 
 /* options.c */
 
+extern int thumbnail;
 extern void options_read(int, char **, qiv_image *);
 
 /* utils.c */

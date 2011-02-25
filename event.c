@@ -475,8 +475,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             snprintf(infotext, sizeof infotext, maxpect ?
                      "(Maxpect: on)" : "(Maxpect: off)");
             zoom_factor = maxpect ? 0 : fixed_zoom_factor; /* reset zoom */
-            check_size(q, TRUE);
-            update_image(q, REDRAW);
+            if (q->has_thumbnail) {
+              if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
+              qiv_load_image(q);
+            } else {
+              check_size(q, TRUE);
+              update_image(q, REDRAW);
+            }
             break;
 
             /* Random on/off */
@@ -766,15 +771,8 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           next_image:
             snprintf(infotext, sizeof infotext, "(Next picture)");
             next_image(1);
+            if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
             qiv_load_image(q);
-            if(magnify && !fullscreen) {
-              gdk_window_hide(magnify_img.win); // [lc]
-//              gdk_flush();
-//              gdk_window_get_root_origin(q->win,
-//                                         &magnify_img.frame_x, &magnify_img.frame_y);
-//              printf(">>> frame %d %d\n", magnify_img.frame_x, magnify_img.frame_y);
-//              setup_magnify(q, &magnify_img);
-            }
             break;
 
             /* 5 pictures forward - or loop to the beginning */

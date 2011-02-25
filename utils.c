@@ -175,7 +175,7 @@ int copy2select()
   if(fdi == -1 || fdo == -1) {
     g_print("*** Error: Could not copy file: '%s'\a\n", strerror(errno));
   }
-  while((n = read(fdi, buf, BUFSIZ)) > 0) write(fdo, buf, n);
+  while((n = read(fdi, buf, BUFSIZ)) > 0) (void)!write(fdo, buf, n);
   close(fdi);
   close(fdo);
 
@@ -505,6 +505,7 @@ void show_help(char *name, int exit_status)
           "    --root_t, -y           Set tiled desktop background and exit\n"
           "    --root_s, -z           Set stretched desktop background and exit\n"
           "    --scale_down, -t       Shrink image(s) larger than the screen to fit\n"
+          "    --thumbnail, -j        Show *.th.jpg instead of *.jpg in maxpect mode\n"
           "    --transparency, -p     Enable transparency for transparent images\n"
           "    --watch, -T            Reload the image if it has changed on disk\n"
           "    --recursivedir, -u     Recursively include all files\n"
