@@ -1,0 +1,16 @@
+qiv for Debian
+--------------
+
+How I created the .orig.tar.gz :
+
+tar xzf qiv-2.1-pre12.tgz
+mv qiv-2.1-pre12/debian qiv-2.1-pre12/upstreamdebian
+mv qiv-2.1-pre12 qiv-2.1-pre12.orig
+tar cf qiv_2.1~pre12.orig.tar qiv-2.1-pre12.orig
+gzip -9 qiv_2.1~pre12.orig.tar
+
+md5sum *z
+3cc72f691b7902fba6f3049c15427222  qiv_2.1~pre12.orig.tar.gz
+80ba1e2da5115a3cc3a6f7e19cb620d8  qiv-2.1-pre12.tgz
+
+ -- Bart Martens <bartm@knars.be>  Sun, 20 May 2007 14:01:49 +0200

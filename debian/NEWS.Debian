@@ -1,0 +1,6 @@
+qiv (2.0-6) unstable; urgency=low
+
+    The options -x, -y, -z and -o are disabled.  See bug #351816 for all
+    details.
+    
+ -- Bart Martens <bartm@knars.be>  Wed, 22 Nov 2006 14:52:29 +0100

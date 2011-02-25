@@ -1,0 +1,132 @@
+diff -ruN origtree/qiv-2.0/options.c qiv-2.0/options.c
+--- origtree/qiv-2.0/options.c	2006-11-22 16:07:04.000000000 +0100
++++ qiv-2.0/options.c	2006-11-22 16:09:15.000000000 +0100
+@@ -28,9 +28,6 @@
+ {
+     {"help",             0, NULL, 'h'},
+     {"center",           0, NULL, 'e'},
+-    {"root",             0, NULL, 'x'},
+-    {"root_t",           0, NULL, 'y'},
+-    {"root_s",           0, NULL, 'z'},
+     {"maxpect",          0, NULL, 'm'},
+     {"scale_down",       0, NULL, 't'},
+     {"brightness",       1, NULL, 'b'},
+@@ -44,7 +41,6 @@
+     {"disable_grab",     0, NULL, 'G'},
+     {"select_dir",       1, NULL, 'A'},
+     {"version",          0, NULL, 'v'},
+-    {"bg_color",         1, NULL, 'o'},
+     {"slide",            0, NULL, 's'},
+     {"random",           0, NULL, 'r'},
+     {"readonly",         0, NULL, 'R'},
+@@ -200,12 +196,6 @@
+ 	    case 'h': show_help(argv[0], 0); break;
+ 	    case 'e': center=0;
+ 		      break;
+-	    case 'x': to_root=1;
+-		      break;
+-	    case 'y': to_root_t=1;
+-		      break;
+-	    case 'z': to_root_s=1;
+-		      break;
+ 	    case 't': scale_down=1;
+ 		      break;
+ 	    case 'm': maxpect=1;
+@@ -239,8 +229,6 @@
+ 	    case 'v': g_print("qiv (Quick Image Viewer) v%s\n", VERSION);
+ 		      gdk_exit(0);
+ 		      break;
+-	    case 'o': image_bg_spec = optarg;
+-		      break;
+ 	    case 's': slide=1;
+ 		      break;
+ 	    case 'r': random_order=1;
+diff -ruN origtree/qiv-2.0/qiv.1 qiv-2.0/qiv.1
+--- origtree/qiv-2.0/qiv.1	2006-11-22 16:07:04.000000000 +0100
++++ qiv-2.0/qiv.1	2006-11-22 16:08:21.000000000 +0100
+@@ -52,15 +52,6 @@
+ .B \-W, \-\-fixed_zoom \fIx\fB.
+ Window with fixed zoom factor (percentage \fIx\fR).
+ .TP
+-.B \-x, \-\-root \fIfile\fB
+-Set \fIfile\fR as the current desktop background (centered) and exit.
+-.TP
+-.B \-y, \-\-root_t \fIfile\fB
+-Set \fIfile\fR as the current desktop background (tiled) and exit.
+-.TP
+-.B \-z, \-\-root_s \fIfile\fB
+-Set \fIfile\fR as the current desktop background (stretched) and exit.
+-.TP
+ .B \-m, \-\-maxpect
+ Expand image(s) to fit screen size while preserving aspect ratio.
+ .TP
+@@ -99,10 +90,6 @@
+ .B \-v, \-\-version
+ Print version information.
+ .TP
+-.B \-o, \-\-bg_color \fIx\fB
+-Set root background color to named color \fIx\fR or 24 bit hex RGB triple
+-in the format \fI#RRGGBB\fR.
+-.TP
+ .B \-s, \-\-slide
+ Start slideshow immediately.
+ .TP
+@@ -146,15 +133,9 @@
+ .SH EXAMPLES
+ qiv \-atsd2 *.jpg
+ .br
+-qiv \-\-maxpect \-\-root image.png
+-.br
+ qiv \-\-maxpect \-\-slide \-\-random \-\-delay=2 *
+ .br
+ qiv \-\-maxpect \-\-scale_down \-\-slide \-\-delay=2 `find / *`
+-.br
+-qiv \-\-bg_color 0000FF \-\-root image.png
+-.br
+-qiv \-\-bg_color blue \-\-root image.png
+ .SH KEYS
+ .EX
+ space/left mouse/wheel down        next picture
+@@ -198,9 +179,6 @@
+ i                  statusbar on/off
+ I                  iconify window
+ w                  watch file on/off
+-x                  center image on background
+-y                  tile image on background
+-z                  stretch image on background
+ .EE
+ .SH MOUSE CONTROLS
+ .EX
+diff -ruN origtree/qiv-2.0/utils.c qiv-2.0/utils.c
+--- origtree/qiv-2.0/utils.c	2006-11-22 16:07:04.000000000 +0100
++++ qiv-2.0/utils.c	2006-11-22 16:09:32.000000000 +0100
+@@ -440,7 +440,6 @@
+     g_print(
+           "General options:\n"
+ 	  "    --file, -F x           Read file names from text file x\n"
+-          "    --bg_color, -o x       Set root background color to x\n"
+           "    --brightness, -b x     Set brightness to x (-32..32)\n"
+           "    --center, -e           Disable window centering\n"
+           "    --contrast, -c x       Set contrast to x (-32..32)\n"
+@@ -460,9 +459,6 @@
+           "    --no_statusbar, -i     Disable statusbar\n"
+           "    --statusbar, -I        Enable statusbar\n"
+           "    --numeric_sort, -N     Sort filenames with numbers intuitively\n"
+-          "    --root, -x             Set centered desktop background and exit\n"
+-          "    --root_t, -y           Set tiled desktop background and exit\n"
+-          "    --root_s, -z           Set stretched desktop background and exit\n"
+           "    --scale_down, -t       Shrink image(s) larger than the screen to fit\n"
+           "    --transparency, -p     Enable transparency for transparent images\n"
+           "    --version, -v          Print version information and exit\n"
+--- origtree/qiv-2.0/main.h	2004-04-19 08:47:19.000000000 +0200
++++ qiv-2.0/main.h	2006-11-22 16:14:17.000000000 +0100
+@@ -97,9 +97,6 @@
+     "i                    statusbar on/off",
+     "I                    iconify window",
+     "w                    watch file on/off",
+-    "x                    center image on background",
+-    "y                    tile image on background",
+-    "z                    stretch image on background",
+     NULL
+ };
+ 

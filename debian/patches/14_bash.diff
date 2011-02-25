@@ -1,0 +1,8 @@
+--- ../orig/qiv-2.2/qiv-command.example	2009-03-22 19:53:19.000000000 +0100
++++ qiv-command.example	2009-04-30 12:13:54.000000000 +0200
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ 
+ ###
+ ### QUICK IMAGE VIEWER "qiv-command" file

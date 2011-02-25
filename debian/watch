@@ -1,0 +1,5 @@
+version=3
+opts="uversionmangle=s/(\d)[\-_]?(rc\d+|pre-rc\d+|pre\d+a?)$/$1~$2/;s/[\-\.](source|Source|src|orig|unix)$//;s/-(bin|osx)$/~$1/;s/^v(\d)/$1/;" \
+http://spiegl.de/qiv/download/ .*qiv-(v?[\d\.]+(?:rc|rc\d+|pre-rc\d+|-unix|-source|-Source|-src|\.src|\.orig|[a-z]|b\d+|beta\d+-src|beta\d+)?)\.t.*
+# generated with watchupstream 0.6
+# watchupstream qiv --try=http://spiegl.de/qiv/download/
