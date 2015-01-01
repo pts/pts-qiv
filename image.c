@@ -513,8 +513,9 @@ void reload_image(qiv_image *q)
 }
 
 void check_size(qiv_image *q, gint reset) {
+  /* printf("maxpect=%d thumbnail=%d scale_down=%d reset=%d\n", maxpect, thumbnail, scale_down, reset); */
   if ((maxpect && !thumbnail) ||
-      (maxpect && thumbnail && scale_down && (q->orig_w>screen_x || q->orig_h>screen_y)) ||
+      (maxpect && thumbnail && (q->orig_w>screen_x || q->orig_h>screen_y)) ||
       (scale_down && (q->orig_w>screen_x || q->orig_h>screen_y))) {
     zoom_maxpect(q);
   } else if (reset || (scale_down && (q->win_w<q->orig_w || q->win_h<q->orig_h))) {
