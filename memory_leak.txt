@@ -1,0 +1,12 @@
+We don't have memory leaks, i.e. this doesn't increase per image:
+
+valgrind --leak-check=full ./qiv -n -D -f -m --thumbnail -- `ls -L --sort=size *.jpg`
+
+==3902== LEAK SUMMARY:
+==3902==    definitely lost: 2,997 bytes in 8 blocks
+==3902==    indirectly lost: 13,740 bytes in 580 blocks
+==3902==      possibly lost: 6,366 bytes in 111 blocks
+==3902==    still reachable: 67,521,015 bytes in 6,249 blocks
+==3902==         suppressed: 0 bytes in 0 blocks
+==3902== Reachable blocks (those to which a pointer was found) are not shown.
+==3902== To see them, rerun with: --leak-check=full --show-leak-kinds=all
