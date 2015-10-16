@@ -14,7 +14,7 @@ int		images;	/* Number of images in current collection */
 char		**image_names = NULL; /* Filenames of the images */
 int		image_idx = 0; /* Index of current image displayed. 0 = 1st image */
 int		max_image_cnt = 0; /* # images currently allocated into arrays */
-time_t          current_mtime; /* modification time of file currently loaded */
+time_t          current_mtime = 0; /* modification time of file currently loaded */
 qiv_deletedfile *deleted_files;
 int		delete_idx;
 char    select_dir[FILENAME_LEN];

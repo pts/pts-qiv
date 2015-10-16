@@ -705,9 +705,9 @@ gboolean qiv_watch_file (gpointer data)
   if(!watch_file)
   	return FALSE;
 
-  stat(image_names[image_idx], &statbuf);
-
-  if(current_mtime!=statbuf.st_mtime && statbuf.st_size){
+  if (current_mtime != 0 &&
+      stat(image_names[image_idx], &statbuf) == 0 &&
+      current_mtime != statbuf.st_mtime && statbuf.st_size) {
 	  reload_image(q);
           update_image(q, REDRAW);
   }

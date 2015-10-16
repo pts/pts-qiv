@@ -98,17 +98,40 @@ enum Orientation orient( const char * path) {
 }
 #endif  //HAVE_EXIF
 
+/* The caller takes ownership of the returned value. */
+static char* get_thumbnail_filename(const char *filename) {
+  const char *r;
+  const char *p;
+  char *thumbnail_filename;
+  size_t prefixlen;
+  struct stat st;
+
+  p = r = filename + strlen(filename);
+  /* Replace image extension with .th.jpg, save result to thumbnail_filename */
+  while (p != filename && p[-1] != '/' && p[-1] != '.') {
+    --p;
+  }
+  prefixlen = (p != filename && p[-1] == '.') ?
+              p - filename - 1 : r - filename;
+  thumbnail_filename = xmalloc(prefixlen + 8);
+  memcpy(thumbnail_filename, filename, prefixlen);
+  strcpy(thumbnail_filename + prefixlen, ".th.jpg");
+
+  if (0 == stat(thumbnail_filename, &st) && S_ISREG(st.st_mode)) {
+    return thumbnail_filename;
+  }
+  free(thumbnail_filename);
+  return NULL;
+}
+
 /*
  *    Load & display image
  */
-
-void qiv_load_image(qiv_image *q)
-{
-  struct stat statbuf;
-  const char * image_name = image_names[ image_idx];
-  char* th_image_name = NULL;
-  char need_stat = 1;
-
+void qiv_load_image(qiv_image *q) {
+  struct stat st;
+  const char *image_name = image_names[image_idx];
+  Imlib_Image *im;
+  int is_stat_ok;
   gettimeofday(&load_before, 0);
 
   if (imlib_context_get_image())
@@ -116,46 +139,40 @@ void qiv_load_image(qiv_image *q)
 
   q->real_w = q->real_h = -1;
   q->is_thumbnail = q->has_thumbnail = FALSE;
-  if (thumbnail && fullscreen) {
-    const char* r = image_name + strlen(image_name);
-    const char* p = r;
-    char* th_image_name;
-    size_t prefixlen;
-
-    /* Replace image extension with .th.jpg, save result to th_image_name */
-    while (p != image_name && p[-1] != '/' && p[-1] != '.') {
-      --p;
-    }
-    prefixlen = (p != image_name && p[-1] == '.') ?
-                p - image_name - 1 : r - image_name;
-    th_image_name = xmalloc(prefixlen + 8);
-    memcpy(th_image_name, image_name, prefixlen);
-    strcpy(th_image_name + prefixlen, ".th.jpg");
-    
-    if (0 == stat(th_image_name, &statbuf) &&
-        S_ISREG(statbuf.st_mode)) {
-      q->has_thumbnail = TRUE;
-      if (maxpect) {
-        /* This is fast, reads only the image headers, not the data */
-        Imlib_Image * im = imlib_load_image(image_name);
-        q->is_thumbnail = TRUE;
-        image_name = th_image_name;
-        need_stat = 0;
-        if (im) {
-          imlib_context_set_image(im);
-          q->real_w = imlib_image_get_width();
-          q->real_h = imlib_image_get_height();
-          imlib_free_image();
-        }
-      }
+  is_stat_ok = 0 == stat(image_name, &st);
+  current_mtime = is_stat_ok ? st.st_mtime : 0;
+  im = NULL;
+  if (thumbnail && fullscreen && is_stat_ok) {
+    char* th_image_name = get_thumbnail_filename(image_name);
+    if (th_image_name) {
+      im = imlib_load_image(th_image_name);
+      free(th_image_name);
+      th_image_name = NULL;
     }
   }
-
-  if (0 == (need_stat && stat(image_name, &statbuf)))
-    current_mtime = statbuf.st_mtime;
-  Imlib_Image * im = imlib_load_image( (char*)image_name );
-  /* TODO(pts): Display the original image dimensions, not the thumbnail. */
-  free(th_image_name);
+  if (im) {  /* We have a dumb thumbnail in im. */
+    q->has_thumbnail = TRUE;
+    if (maxpect) {
+      /* This is fast, reads only the image headers, not the data */
+      /* Read the dimensions of the original image, if available. */
+      Imlib_Image *im_orig = imlib_load_image(image_name);
+      q->is_thumbnail = TRUE;
+      if (im_orig) {
+        imlib_context_set_image(im_orig);
+        q->real_w = imlib_image_get_width();
+        q->real_h = imlib_image_get_height();
+        imlib_free_image();
+      }
+      /* Now im still has the thumbnail image. Keep it. */
+      current_mtime = 0;
+    } else {  /* Use the real, non-thumbnail image instead. */
+      imlib_context_set_image(im);
+      imlib_free_image();
+      im = imlib_load_image((char*)image_name);
+    }
+  } else {
+    im = imlib_load_image((char*)image_name);
+  }
 
   if (!im) { /* error */
     q->error = 1;
