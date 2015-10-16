@@ -415,6 +415,7 @@ void jump2image(char *cmd)
 
 void finish(int sig)
 {
+  (void)sig;
   gdk_pointer_ungrab(CurrentTime);
   gdk_keyboard_ungrab(CurrentTime);
   exit(0);
@@ -458,10 +459,10 @@ int checked_atoi (const char *s)
 
 void usage(char *name, int exit_status)
 {
-    g_print("qiv (Quick Image Viewer) v%s\n"
-	"Usage: qiv [options] files ...\n"
-	"See 'man qiv' or type 'qiv --help' for options.\n",
-        VERSION);
+    g_print("pts-qiv (Quick Image Viewer, enhanced by pts) v%s\n"
+	"Usage: %s [options] files ...\n"
+	"See 'man qiv' or type '%s --help' for options.\n",
+        name, VERSION, name);
 
     gdk_exit(exit_status);
 }
@@ -470,9 +471,9 @@ void show_help(char *name, int exit_status)
 {
     int i;
 
-    g_print("qiv (Quick Image Viewer) v%s\n"
-	"Usage: qiv [options] files ...\n\n",
-        VERSION);
+    g_print("pts-qiv (Quick Image Viewer, enhanced by pts) v%s\n"
+	"Usage: %s [options] files ...\n\n",
+        name, VERSION);
 
     g_print(
           "General options:\n"
@@ -547,6 +548,7 @@ int get_random(int replace, int num, int direction)
 
   int n,m,p,q;
 
+  (void)replace; (void)direction;
   if (!rindices)
     rindices = (int *) xmalloc((unsigned) max_rand_num*sizeof(int));
   if (rsize != num) {

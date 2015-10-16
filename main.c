@@ -163,6 +163,7 @@ int main(int argc, char **argv)
 
 void qiv_exit(int code)
 {
+  (void)code;
   if (cmap) gdk_colormap_unref(cmap);
   destroy_image(&main_img);
 
@@ -217,6 +218,7 @@ static gboolean qiv_handle_timer(gpointer data)
 
 static void qiv_timer_restart(gpointer dummy)
 {
+  (void)dummy;
   g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, delay,
                      qiv_handle_timer, &slide,
                      qiv_timer_restart);

@@ -409,7 +409,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
         /* else record keystroke if not null */
         else {
           if (ev->key.string && *ev->key.string > 31 &&
-              *ev->key.string < 256 && jidx < sizeof(jcmd) - 1) {
+              jidx + 0U < sizeof(jcmd) - 1) {
             // TODO(pts): Add multiple characters (UTF-8).
             jcmd[jidx++]=*(ev->key.string);
             jcmd[jidx] = '\0';
@@ -1073,8 +1073,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             extcommand = 1;
             jidx = 0;
             // TODO(pts): Add multiple characters (UTF-8).
-            if (ev->key.string && *ev->key.string > 31 &&
-                *ev->key.string < 256) {
+            if (ev->key.string && *ev->key.string > 31) {
               jcmd[jidx++]=*(ev->key.string);
             }
             jcmd[jidx] = '\0';

@@ -110,7 +110,7 @@ static char* get_thumbnail_filename(const char *filename) {
   ssize_t readlink_result;
 
   readlink_result = readlink(filename, link_target, sizeof(link_target));
-  if (readlink_result > 0 && readlink_result < sizeof(link_target)) {
+  if (readlink_result > 0 && (size_t)readlink_result < sizeof(link_target)) {
     /* It's a symlink and it's not too long. For example (198 bytes):
      * ../.git/annex/objects/G1/mX/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg
      */
