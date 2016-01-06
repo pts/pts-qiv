@@ -795,7 +795,7 @@ void reset_coords(qiv_image *q)
 }
 
 static void update_win_title(qiv_image *q, const char *image_name, double elapsed) {
-  char dimen_msg[sizeof(gint) * 3 + 8];
+  char dimen_msg[sizeof(gint) * 6 + 8];
   char elapsed_msg[16];
   if (isnan(elapsed)) {
     *elapsed_msg = '\0';
