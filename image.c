@@ -150,19 +150,81 @@ static char* get_thumbnail_filename(const char *filename) {
   return NULL;
 }
 
+/* Get the dimensionsions from the REALDIMEN: comment in the thumbnail
+ * image.
+ *
+ * It's very fast, because it reads only the image headers quickly.
+ * Currently it supports only JPEG thumbnails. It may have to read 30 kB of
+ * data to find the COM segment.
+ */
+static int get_real_dimensions_fast(
+    FILE *f, gint *w_out, gint *h_out) {
+  static const char realdimen_prefix[] = "REALDIMEN:";
+  char comment[256];
+  int c, m;
+  unsigned i, ss;
+  if ((c = getc(f)) < 0) return -2;  /* Truncated (empty). */
+  if (c != 0xff) return -3;
+  if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+  if (c != 0xd8) return -3;  /* Not a JPEG file, SOI expected. */
+  for (;;) {
+    if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+    if (c != 0xff) return -3;  /* Not a JPEG file, marker expected. */
+    if ((m = getc(f)) < 0) return -2;  /* Truncated. */
+    while (m == 0xff) {  /* Padding. */
+      if ((m = getc(f)) < 0) return -2;  /* Truncated. */
+    }
+    if (m == 0xd8) return -4;  /* SOI unexpected. */
+    if (m == 0xd9) break;  /* EOI. */
+    if (m == 0xda) break;  /* SOS. Would need special escaping to process. */
+    if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+    ss = (c + 0U) << 8;
+    if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+    ss += c;
+    if (ss < 2) return -5;  /* Segment too short. */
+    ss -= 2;
+    if (m == 0xfe && ss < sizeof(comment)) {
+      for (i = 0; i < ss; ++i) {
+        if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+        comment[i] = c;
+      }
+      comment[i] = '\0';
+      if (strncmp(comment, realdimen_prefix,
+                  sizeof(realdimen_prefix) - 1) == 0) {
+        int w, h;
+        if (sscanf(comment + sizeof(realdimen_prefix) - 1,
+                   "%dx%d", &w, &h) == 2) {
+          *w_out = w;
+          *h_out = h;
+          return 0;
+        } else {
+          return -7;  /* Bad REALDIMEN: syntax. */
+        }
+      }
+      *w_out = *h_out = -2;
+    } else {
+      for (; ss > 0; --ss) {
+        if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+      }
+    }
+  }
+  return -6;  /* REALDIMEN: comment not found. */
+}
+
 /* Populates *w_out and *h_out with the dimensions of the image file
  * specified in image_name. On an error, returns a negative number and keeps
  * w_out and h_out unset.
  *
  * It's very fast, because it reads only the image headers quickly. Currently
  * it supports JPEG, PNG, GIF and BMP. For other file formats, it returns -6.
+ * (For JPEG it may have to read 30 kB of data to find the SOF segment.)
  *
  * As a side effect, reads sequentially from f.
  */
 static int get_image_dimensions_fast(
     FILE *f, gint *w_out, gint *h_out) {
   /* We could read the beginning of the image file to memory, but we'd need
-   * at least 32 kB of memory for JPEG files, because they have the SOF0 (C0)
+   * at least 30 kB of memory for JPEG files, because they have the SOF0 (C0)
    * marker after comments. So we don't do that, but we use getc instead.
    */
   int c, m;
@@ -272,6 +334,10 @@ static int get_image_dimensions_fast(
 /* Populates *w_out and *h_out with the dimensions of the image file
  * specified in image_name. On an error, sets *w_out = *h_out = -1.
  *
+ * If th_image_name is not NULL, then before reading image_name, it tries to
+ * get the dimensions of the real image from the REALDIMEN: comment in the
+ * thumbnail image th_image_name.
+ *
  * It's usually quite fast, because it reads only the image headers (with
  * imlib_load_image, or with a custom, faster code for JPEG files).
  *
@@ -279,9 +345,14 @@ static int get_image_dimensions_fast(
  * calling imlib_free_image()).
  */
 static void get_image_dimensions(
-    const char *image_name, gint *w_out, gint *h_out) {
+    const char *image_name, const char *th_image_name,
+    gint *w_out, gint *h_out) {
   Imlib_Image *im_orig;
   FILE *f;
+  if (th_image_name && (f = fopen(th_image_name, "rb")) != NULL) {
+    if (get_real_dimensions_fast(f, w_out, h_out) == 0) { fclose(f); return; }
+    fclose(f);
+  }
   if ((f = fopen(image_name, "rb")) != NULL) {
     /* Faster than imlib_load_image on same (rare) JPEG files. */
     if (get_image_dimensions_fast(f, w_out, h_out) == 0) { fclose(f); return; }
@@ -315,17 +386,20 @@ void qiv_load_image(qiv_image *q) {
   is_stat_ok = 0 == stat(image_name, &st);
   current_mtime = is_stat_ok ? st.st_mtime : 0;
   im = NULL;
-  if (thumbnail && fullscreen && is_stat_ok) {
+  if (thumbnail && fullscreen && (is_stat_ok || maxpect)) {
     char* th_image_name = get_thumbnail_filename(image_name);
     if (th_image_name) {
       im = imlib_load_image(th_image_name);
+      if (im && maxpect) {
+        get_image_dimensions(image_name, th_image_name,
+                             &q->real_w, &q->real_h);
+      }
       free(th_image_name);
       th_image_name = NULL;
     }
   }
   if (im) {  /* We have a dumb thumbnail in im. */
     if (maxpect) {
-      get_image_dimensions(image_name, &q->real_w, &q->real_h);
       current_mtime = 0;
       q->has_thumbnail = TRUE;
       /* Now im still has the thumbnail image. Keep it. */
@@ -729,7 +803,8 @@ static void update_win_title(qiv_image *q, const char *image_name, double elapse
     g_snprintf(elapsed_msg, sizeof elapsed_msg, "%1.01fs ", elapsed);
   }
   if (q->real_w == -1) {
-    strcpy(dimen_msg, "(?x?)--");  /* Showing thumbnail, real image unaccessible. */
+    /* Showing thumbnail, real image missing or unloadable. */
+    strcpy(dimen_msg, "(?x?)--");
   } else {
     g_snprintf(dimen_msg, sizeof dimen_msg, "(%dx%d)%s",
                q->real_w >= 0 ? q->real_w : q->orig_w,
