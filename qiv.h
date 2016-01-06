@@ -59,7 +59,6 @@ typedef struct _qiv_image {
   gint win_x, win_y, win_w, win_h; /* window co-ordinates */
   gint orig_w, orig_h; /* Size of original image in pixels */
   gint real_w, real_h; /* Size of real (non-thumbnail image in pixels, or (-1, -1) */
-  gboolean is_thumbnail;
   gboolean has_thumbnail;
   GdkGC *bg_gc;     /* image window background */
   GdkGC *text_gc;   /* statusbar text color */

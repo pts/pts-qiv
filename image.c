@@ -149,6 +149,27 @@ static char* get_thumbnail_filename(const char *filename) {
   return NULL;
 }
 
+/* Populates *w_out and *h_out with the dimensions of the image file
+ * specified in image_name. On an error, sets *w_out = *h_out = -1.
+ *
+ * It's usually quite fast, because it reads only the image headers (with
+ * imlib_load_image).
+ *
+ * As a side effect, may destroy the image in the Imlib2 image context (by
+ * calling imlib_free_image()).
+ */
+static void get_image_dimensions(
+    const char *image_name, gint *w_out, gint *h_out) {
+  Imlib_Image *im_orig = imlib_load_image(image_name);
+  *w_out = *h_out = -1;
+  if (im_orig) {
+    imlib_context_set_image(im_orig);
+    *w_out = imlib_image_get_width();
+    *h_out = imlib_image_get_height();
+    imlib_free_image();
+  }
+}
+
 /*
  *    Load & display image
  */
@@ -163,7 +184,7 @@ void qiv_load_image(qiv_image *q) {
     imlib_free_image();
 
   q->real_w = q->real_h = -1;
-  q->is_thumbnail = q->has_thumbnail = FALSE;
+  q->has_thumbnail = FALSE;
   is_stat_ok = 0 == stat(image_name, &st);
   current_mtime = is_stat_ok ? st.st_mtime : 0;
   im = NULL;
@@ -178,16 +199,8 @@ void qiv_load_image(qiv_image *q) {
   if (im) {  /* We have a dumb thumbnail in im. */
     q->has_thumbnail = TRUE;
     if (maxpect) {
-      /* This is fast, reads only the image headers, not the data */
       /* Read the dimensions of the original image, if available. */
-      Imlib_Image *im_orig = imlib_load_image(image_name);
-      q->is_thumbnail = TRUE;
-      if (im_orig) {
-        imlib_context_set_image(im_orig);
-        q->real_w = imlib_image_get_width();
-        q->real_h = imlib_image_get_height();
-        imlib_free_image();
-      }
+      get_image_dimensions(image_name, &q->real_w, &q->real_h);
       /* Now im still has the thumbnail image. Keep it. */
       current_mtime = 0;
     } else {  /* Use the real, non-thumbnail image instead. */
