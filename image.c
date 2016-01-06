@@ -7,6 +7,7 @@
   Original     : http://www.klografx.net/qiv/
 */
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <gdk/gdkx.h>
@@ -150,23 +151,149 @@ static char* get_thumbnail_filename(const char *filename) {
 }
 
 /* Populates *w_out and *h_out with the dimensions of the image file
+ * specified in image_name. On an error, returns a negative number and keeps
+ * w_out and h_out unset.
+ *
+ * It's very fast, because it reads only the image headers quickly. Currently
+ * it supports JPEG, PNG, GIF and BMP. For other file formats, it returns -6.
+ *
+ * As a side effect, reads sequentially from f.
+ */
+static int get_image_dimensions_fast(
+    FILE *f, gint *w_out, gint *h_out) {
+  /* We could read the beginning of the image file to memory, but we'd need
+   * at least 32 kB of memory for JPEG files, because they have the SOF0 (C0)
+   * marker after comments. So we don't do that, but we use getc instead.
+   */
+  int c, m;
+  unsigned ss, i;
+  char head[26];
+  for (i = 0; i < 4; ++i) {
+    if ((c = getc(f)) < 0) return -2;  /* Truncated in header. */
+    head[i] = c;
+  }
+  if (0 == memcmp(head, "\xff\xd8\xff", 3)) {  /* JPEG. */
+    /* A typical JPEG file has markers in these order:
+     *   d8 e0_JFIF e1 e1 e2 db db fe fe c0 c4 c4 c4 c4 da d9.
+     *   The first fe marker (COM, comment) was near offset 30000.
+     * A typical JPEG file after filtering through jpegtran:
+     *   d8 e0_JFIF fe fe db db c0 c4 c4 c4 c4 da d9.
+     *   The first fe marker (COM, comment) was at offset 20.
+     */
+    m = head[3];
+    goto start_jpeg;
+    for (;;) {
+      /* printf("@%ld\n", ftell(f)); */
+      if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+      if (c != 0xff) return -3;  /* Not a JPEG file, marker expected. */
+      if ((m = getc(f)) < 0) return -2;  /* Truncated. */
+     start_jpeg:
+      while (m == 0xff) {  /* Padding. */
+        if ((m = getc(f)) < 0) return -2;  /* Truncated. */
+      }
+      if (m == 0xd8) return -4;  /* SOI unexpected. */
+      if (m == 0xd9) return -8;  /* EOI unexpected before SOF. */
+      if (m == 0xda) return -9;  /* SOS unexpected before SOF. */
+      /* printf("MARKER 0x%02x\n", m); */
+      if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+      ss = (c + 0U) << 8;
+      if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+      ss += c;
+      if (ss < 2) return -5;  /* Segment too short. */
+      if ((m & ~7) == 0xc0) {  /* SOF0 ... SOF7. */
+        ss -= 2;
+        if (ss < 5) return -7;  /* SOF segment too short. */
+        for (i = 0; i < 5; ++i) {
+          if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+          head[i] = c;
+        }
+        *w_out = (unsigned char)head[3] << 8 | (unsigned char)head[4];
+        *h_out = (unsigned char)head[1] << 8 | (unsigned char)head[2];
+        return 0;
+      } else {
+        for (ss -= 2; ss > 0; --ss) {
+          if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+        }
+      }
+    }
+    return -10;  /* Internal error, shouldn't be reached. */
+  } else if (0 == memcmp(head, "BM", 2)) {  /* BMP. */
+    for (; i < 26; ++i) {
+      if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+      head[i] = c;
+    }
+    switch ((unsigned char)head[14]) {
+     case 12: case 64:
+      *w_out = (unsigned char)head[18] | (unsigned char)head[19] << 8;
+      *h_out = (unsigned char)head[20] | (unsigned char)head[21] << 8;
+      break;
+     case 40:
+      *w_out = (unsigned char)head[18]       | (unsigned char)head[19] << 8 |
+               (unsigned char)head[20] << 16 | (unsigned char)head[21] << 24;
+      *h_out = (unsigned char)head[22] | (unsigned char)head[23] << 8 |
+               (unsigned char)head[24] << 16 | (unsigned char)head[25] << 8;
+      break;
+     default:  /* case 0x7C: BMP with colorspace info. */
+      return -12;  /* Unrecognized BMP. */
+    }
+    return 0;
+  } else if (0 == memcmp(head, "GIF8", 4)) {  /* GIF. */
+    for (; i < 10; ++i) {
+      if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+      head[i] = c;
+    }
+    if (0 != memcmp(head, "GIF87a", 6) && 0 != memcmp(head, "GIF89a", 6)) {
+      return -13;  /* Invalid GIF header. */
+    }
+    *w_out = (unsigned char)head[6] | (unsigned char)head[7] << 8;
+    *h_out = (unsigned char)head[8] | (unsigned char)head[9] << 8;
+    return 0;
+  } else if (0 == memcmp(head, "\211PNG", 4)) {  /* GIF. */
+    for (; i < 24; ++i) {
+      if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+      head[i] = c;
+    }
+    if ((unsigned char)head[11] - 015U > 062U) {
+      return -14;  /* Invalid PNG header. */
+    }
+    head[11] = 0;
+    if (0 != memcmp(head, "\211PNG\r\n\032\n\0\0\0\0IHDR", 16)) {
+      return -14;  /* Invalid PNG header. */
+    }
+    *w_out = (unsigned char)head[19]       | (unsigned char)head[18] << 8 |
+             (unsigned char)head[17] << 16 | (unsigned char)head[16] << 24;
+    *h_out = (unsigned char)head[23] | (unsigned char)head[22] << 8 |
+             (unsigned char)head[21] << 16 | (unsigned char)head[20] << 8;
+    return 0;
+  }
+  return -6;  /* Unrecognized file format. */
+}
+
+/* Populates *w_out and *h_out with the dimensions of the image file
  * specified in image_name. On an error, sets *w_out = *h_out = -1.
  *
  * It's usually quite fast, because it reads only the image headers (with
- * imlib_load_image).
+ * imlib_load_image, or with a custom, faster code for JPEG files).
  *
  * As a side effect, may destroy the image in the Imlib2 image context (by
  * calling imlib_free_image()).
  */
 static void get_image_dimensions(
     const char *image_name, gint *w_out, gint *h_out) {
-  Imlib_Image *im_orig = imlib_load_image(image_name);
-  *w_out = *h_out = -1;
-  if (im_orig) {
+  Imlib_Image *im_orig;
+  FILE *f;
+  if ((f = fopen(image_name, "rb")) != NULL) {
+    /* Faster than imlib_load_image on same (rare) JPEG files. */
+    if (get_image_dimensions_fast(f, w_out, h_out) == 0) { fclose(f); return; }
+    fclose(f);
+  }
+  if ((im_orig = imlib_load_image(image_name)) != NULL) {
     imlib_context_set_image(im_orig);
     *w_out = imlib_image_get_width();
     *h_out = imlib_image_get_height();
     imlib_free_image();
+  } else {
+    *w_out = *h_out = -1;
   }
 }
 
@@ -183,7 +310,7 @@ void qiv_load_image(qiv_image *q) {
   if (imlib_context_get_image())
     imlib_free_image();
 
-  q->real_w = q->real_h = -1;
+  q->real_w = q->real_h = -2;
   q->has_thumbnail = FALSE;
   is_stat_ok = 0 == stat(image_name, &st);
   current_mtime = is_stat_ok ? st.st_mtime : 0;
@@ -197,12 +324,11 @@ void qiv_load_image(qiv_image *q) {
     }
   }
   if (im) {  /* We have a dumb thumbnail in im. */
-    q->has_thumbnail = TRUE;
     if (maxpect) {
-      /* Read the dimensions of the original image, if available. */
       get_image_dimensions(image_name, &q->real_w, &q->real_h);
-      /* Now im still has the thumbnail image. Keep it. */
       current_mtime = 0;
+      q->has_thumbnail = TRUE;
+      /* Now im still has the thumbnail image. Keep it. */
     } else {  /* Use the real, non-thumbnail image instead. */
       imlib_context_set_image(im);
       imlib_free_image();
@@ -594,6 +720,30 @@ void reset_coords(qiv_image *q)
   }
 }
 
+static void update_win_title(qiv_image *q, const char *image_name, double elapsed) {
+  char dimen_msg[sizeof(gint) * 3 + 8];
+  char elapsed_msg[16];
+  if (isnan(elapsed)) {
+    *elapsed_msg = '\0';
+  } else {
+    g_snprintf(elapsed_msg, sizeof elapsed_msg, "%1.01fs ", elapsed);
+  }
+  if (q->real_w == -1) {
+    strcpy(dimen_msg, "(?x?)--");  /* Showing thumbnail, real image unaccessible. */
+  } else {
+    g_snprintf(dimen_msg, sizeof dimen_msg, "(%dx%d)%s",
+               q->real_w >= 0 ? q->real_w : q->orig_w,
+               q->real_h >= 0 ? q->real_h : q->orig_h,
+               q->real_w >= 0 && q->real_h >= 0 ? "-" :
+                   thumbnail && !maxpect ? "+" : "");
+  }
+  g_snprintf(q->win_title, sizeof q->win_title,
+             "qiv: %s %s %s%d%% [%d/%d] b%d/c%d/g%d %s",
+             image_name, dimen_msg, elapsed_msg,
+             myround((1.0-(q->orig_w - q->win_w)/(double)q->orig_w)*100), image_idx+1, images,
+             q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32, infotext);
+}
+
 /* Something changed the image.  Redraw it. */
 
 void update_image(qiv_image *q, int mode)
@@ -647,19 +797,8 @@ void update_image(qiv_image *q, int mode)
 	gdk_drawable_set_colormap(GDK_DRAWABLE(q->p),
 				  gdk_drawable_get_colormap(GDK_DRAWABLE(q->win)));
 	m = gdk_pixmap_foreign_new(x_mask);
-     }
-
-      g_snprintf(q->win_title, sizeof q->win_title,
-                 "qiv: %s (%dx%d)%s %d%% [%d/%d] b%d/c%d/g%d %s",
-                 image_names[image_idx],
-                 q->real_w >= 0 ? q->real_w : q->orig_w,
-                 q->real_h >= 0 ? q->real_h : q->orig_h,
-                 q->real_w >= 0 && q->real_h >= 0 ? "-" :
-                     thumbnail && !maxpect ? "+" : "",
-                 myround((1.0-(q->orig_w - q->win_w)/(double)q->orig_w)*100), image_idx+1, images,
-                 q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32, infotext);
-      snprintf(infotext, sizeof infotext, "(-)");
-
+      }
+      update_win_title(q, image_names[image_idx], NAN);
     } // mode == MOVED
     else
     {
@@ -683,23 +822,13 @@ void update_image(qiv_image *q, int mode)
 #ifdef DEBUG
       if (m)  g_print("*** image has transparency\n");
 #endif
-
-      g_snprintf(q->win_title, sizeof q->win_title,
-                 "qiv: %s (%dx%d)%s %1.01fs %d%% [%d/%d] b%d/c%d/g%d %s",
-                 image_names[image_idx],
-                 q->real_w >= 0 ? q->real_w : q->orig_w,
-                 q->real_h >= 0 ? q->real_h : q->orig_h,
-                 q->real_w >= 0 && q->real_h >= 0 ? "-" :
-                     thumbnail && !maxpect ? "+" : "",
-                 load_elapsed+elapsed,
-                 myround((1.0-(q->orig_w - q->win_w)/(double)q->orig_w)*100), image_idx+1, images,
-                 q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32, infotext);
-      snprintf(infotext, sizeof infotext, "(-)");
+      update_win_title(q, image_names[image_idx], load_elapsed + elapsed);
     }
+    snprintf(infotext, sizeof infotext, "(-)");
   }
 
   gdk_window_set_title(q->win, q->win_title);
-  
+
   q->text_len = strlen(q->win_title);
   pango_layout_set_text(layout, q->win_title, -1);
   pango_layout_get_pixel_size (layout, &(q->text_w), &(q->text_h));
