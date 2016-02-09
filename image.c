@@ -421,6 +421,20 @@ void qiv_load_image(qiv_image *q) {
     q->error = 0;
     q->orig_w = imlib_image_get_width();
     q->orig_h = imlib_image_get_height();
+    if (q->orig_w >= (1 << 23) / q->orig_h) {
+      /* Workaround for Imlib2 1.4.6 on Ubuntu Trusty: PNG images with an
+       * alpha channel and pixel count >= (1 << 23) are displayed as black.
+       * imlib_image_query_pixel returns the correct value, but
+       * imlib_render_pixmaps_for_whole_image_at_size renders only black
+       * pixels if unzoomed.
+       */
+      Imlib_Color c;
+      /* Without this call, imlib_image_set_has_alpha(0) is too early, and
+       * it has no effect.
+       */
+      imlib_image_query_pixel(0, 0, &c);
+      imlib_image_set_has_alpha(0);
+    }
 #ifdef HAVE_EXIF
     if (autorotate) {
       transform( q, orient( image_name));
