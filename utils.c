@@ -462,7 +462,7 @@ void usage(char *name, int exit_status)
     g_print("pts-qiv (Quick Image Viewer, enhanced by pts) v%s\n"
 	"Usage: %s [options] files ...\n"
 	"See 'man qiv' or type '%s --help' for options.\n",
-        name, VERSION, name);
+        VERSION, name, name);
 
     gdk_exit(exit_status);
 }
@@ -473,7 +473,7 @@ void show_help(char *name, int exit_status)
 
     g_print("pts-qiv (Quick Image Viewer, enhanced by pts) v%s\n"
 	"Usage: %s [options] files ...\n\n",
-        name, VERSION);
+        VERSION, name);
 
     g_print(
           "General options:\n"
