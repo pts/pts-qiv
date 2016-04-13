@@ -109,28 +109,9 @@ static char* get_thumbnail_filename(const char *filename) {
   struct stat st;
   char link_target[512];
   ssize_t readlink_result;
+  char do_try_readlink = 1;
 
-  readlink_result = readlink(filename, link_target, sizeof(link_target));
-  if (readlink_result > 0 && (size_t)readlink_result < sizeof(link_target)) {
-    /* It's a symlink and it's not too long. For example (198 bytes):
-     * ../.git/annex/objects/G1/mX/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg
-     */
-    static const char prefix[] = ".git/annex/objects/";
-    char *q;
-    link_target[readlink_result] = '\0';
-    for (q = link_target; q[0] == '.' && q[1] == '.' && q[2] == '/'; q += 3) {}
-    /* Found an object in the git-annex annex? */
-    if (0 == strncmp(q, prefix, sizeof(prefix) - 1)) {
-      size_t i;
-      /* Strip the basename from the end: filename[:i]. */
-      for (i = strlen(filename); i > 0 && filename[i - 1] != '/'; --i) {}
-      tmp_filename = xmalloc(i + strlen(link_target) + 1);
-      memcpy(tmp_filename, filename, i);
-      strcpy(tmp_filename + i, link_target);
-      filename = tmp_filename;  /* Look for the thumbnail there. */
-    }
-  }
-
+ again:
   p = r = filename + strlen(filename);
   /* Replace image extension with .th.jpg, save result to thumbnail_filename */
   while (p != filename && p[-1] != '/' && p[-1] != '.') {
@@ -147,6 +128,30 @@ static char* get_thumbnail_filename(const char *filename) {
     return thumbnail_filename;
   }
   free(thumbnail_filename);
+
+  readlink_result = do_try_readlink ? readlink(filename, link_target, sizeof(link_target)) : -1;
+  if (readlink_result > 0 && (size_t)readlink_result < sizeof(link_target)) {
+    /* It's a symlink and it's not too long. For example (198 bytes):
+     * ../.git/annex/objects/G1/mX/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg
+     */
+    static const char prefix[] = ".git/annex/objects/";
+    char *q;
+    do_try_readlink = 0;
+    link_target[readlink_result] = '\0';
+    for (q = link_target; q[0] == '.' && q[1] == '.' && q[2] == '/'; q += 3) {}
+    /* Found an object in the git-annex annex? */
+    if (0 == strncmp(q, prefix, sizeof(prefix) - 1)) {
+      size_t i;
+      /* Strip the basename from the end: filename[:i]. */
+      for (i = strlen(filename); i > 0 && filename[i - 1] != '/'; --i) {}
+      tmp_filename = xmalloc(i + strlen(link_target) + 1);
+      memcpy(tmp_filename, filename, i);
+      strcpy(tmp_filename + i, link_target);
+      filename = tmp_filename;  /* Look for the thumbnail there. */
+      goto again;
+    }
+  }
+
   return NULL;
 }
 
