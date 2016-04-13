@@ -383,7 +383,7 @@ void qiv_load_image(qiv_image *q) {
 
   q->real_w = q->real_h = -2;
   q->has_thumbnail = FALSE;
-  is_stat_ok = 0 == stat(image_name, &st);
+  is_stat_ok = !do_omit_load_stat && 0 == stat(image_name, &st);
   current_mtime = is_stat_ok ? st.st_mtime : 0;
   im = NULL;
   if (thumbnail && fullscreen && (is_stat_ok || maxpect)) {

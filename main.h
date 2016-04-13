@@ -48,6 +48,7 @@ int	to_root_s; /* display on root (stretched) */
 int	transparency; /* transparency on/off */
 int     do_assume_files; /* Assume that all images (command line or list) are files, don't stat them. */
 int	do_grab; /* grab keboard/pointer (default off) */
+int     do_omit_load_stat; /* omit the stat(2) system call at load_image time, don't track changes to the file (current_mtime); useful if the thumbnail is much faster */
 int disable_grab; /* disable keyboard/mouse grabbing in fullscreen mode */
 int	max_rand_num; /* the largest random number range we will ask for */
 int	fixed_window_size = 0; /* window width fixed size/off */

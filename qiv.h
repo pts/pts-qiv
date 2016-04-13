@@ -139,6 +139,8 @@ extern int     transparency;
 #define QIV_FLAG_DO_ASSUME_FILES 300
 extern int     do_assume_files;
 extern int     do_grab;
+#define QIV_FLAG_DO_OMIT_LOAD_STAT 301
+extern int     do_omit_load_stat;
 extern int     disable_grab;
 extern int     max_rand_num;
 extern int     fixed_window_size;
