@@ -46,6 +46,7 @@ int	to_root; /* display on root (centered) */
 int	to_root_t; /* display on root (tiled) */
 int	to_root_s; /* display on root (stretched) */
 int	transparency; /* transparency on/off */
+int     do_assume_files; /* Assume that all images (command line or list) are files, don't stat them. */
 int	do_grab; /* grab keboard/pointer (default off) */
 int disable_grab; /* disable keyboard/mouse grabbing in fullscreen mode */
 int	max_rand_num; /* the largest random number range we will ask for */

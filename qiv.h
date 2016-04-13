@@ -136,6 +136,8 @@ extern int     to_root;
 extern int     to_root_t;
 extern int     to_root_s;
 extern int     transparency;
+#define QIV_FLAG_DO_ASSUME_FILES 300
+extern int     do_assume_files;
 extern int     do_grab;
 extern int     disable_grab;
 extern int     max_rand_num;

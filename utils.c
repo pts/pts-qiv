@@ -484,6 +484,7 @@ void show_help(char *name, int exit_status)
           "    --center, -e           Disable window centering\n"
           "    --contrast, -c x       Set contrast to x (-32..32)\n"
           "    --display x            Open qiv window on display x\n"
+          "    --do_assume_files      Assume that all images (command line or list) are files\n"
           "    --do_grab, -a          Grab the pointer in windowed mode\n"
           "    --disable_grab, -G     Disable pointer/kbd grab in fullscreen mode\n"
           "    --fixed_width, -w x    Window with fixed width x\n"
@@ -650,7 +651,7 @@ int rreadfile(const char *filename)
 		if (line[linelen] == '\n') line[linelen--]  = '\0';
 		if (line[linelen] == '\r') line[linelen--]  = '\0';
 
-		if (stat(line, &sb) >= 0 && S_ISDIR(sb.st_mode))
+		if (!do_assume_files && stat(line, &sb) >= 0 && S_ISDIR(sb.st_mode))
 			rreaddir(line,1);
 		else {
 			if (images >= max_image_cnt) {

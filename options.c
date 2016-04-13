@@ -27,6 +27,7 @@ static char *short_options = "ab:c:d:efg:hilmno:prstuvw:xyzA:BDF:GIMNPRSTW:X:";
 static struct option long_options[] =
 {
     {"do_grab",          0, NULL, 'a'},
+    {"do_assume_files",  0, NULL, QIV_FLAG_DO_ASSUME_FILES},
     {"brightness",       1, NULL, 'b'},
     {"contrast",         1, NULL, 'c'},
     {"delay",            1, NULL, 'd'},
@@ -205,6 +206,8 @@ void options_read(int argc, char **argv, qiv_image *q)
         switch(c) {
             case 'a': do_grab=1;
                 break;
+            case QIV_FLAG_DO_ASSUME_FILES: do_assume_files=1;
+                break;
             case 'b': q->mod.brightness = (checked_atoi(optarg)+32)*8;
                 if ((q->mod.brightness<0) || (q->mod.brightness>512))
                     usage(argv[0],1);
@@ -319,7 +322,8 @@ void options_read(int argc, char **argv, qiv_image *q)
             image_names = (char**)xmalloc(max_image_cnt * sizeof(char*));
         }
         while (cnt-- > 0) {
-            if (stat(argv[optind], &sb) >= 0 && S_ISDIR(sb.st_mode)) {
+            if (!do_assume_files &&
+                stat(argv[optind], &sb) >= 0 && S_ISDIR(sb.st_mode)) {
                 rreaddir(argv[optind++],recursive);
             }
             else {
