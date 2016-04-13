@@ -477,7 +477,7 @@ void show_help(char *name, int exit_status)
 
     g_print(
           "General options:\n"
-          "    --file, -F x           Read file names from text file x or stdin\n"
+          "    --file, -F x           Read list of file names from text file, stdin is -\n"
           "    --bg_color, -o x       Set root background color to x\n"
           "    --brightness, -b x     Set brightness to x (-32..32)\n"
           "    --browse, -B           Scan directory of file for browsing\n"
