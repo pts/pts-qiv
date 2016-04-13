@@ -655,7 +655,7 @@ int rreadfile(const char *filename)
 			rreaddir(line,1);
 		else {
 			if (images >= max_image_cnt) {
-				max_image_cnt += 8192;
+				max_image_cnt <<= 1;
 				image_names = (char**)xrealloc(image_names,max_image_cnt*sizeof(char*));
 			}
 			image_names[images++] = strdup(line);
