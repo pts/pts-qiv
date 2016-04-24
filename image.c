@@ -416,6 +416,13 @@ void qiv_load_image(qiv_image *q) {
   } else {
     im = imlib_load_image((char*)image_name);
   }
+  if (thumbnail && !q->has_thumbnail && q->real_w < 0) {
+    FILE *f = fopen(image_name, "rb");
+    if (f) {
+      get_real_dimensions_fast(f, &q->real_w, &q->real_h);
+      fclose(f);
+    }
+  }
 
   if (!im) { /* error */
     q->error = 1;
@@ -828,7 +835,8 @@ static void update_win_title(qiv_image *q, const char *image_name, double elapse
     g_snprintf(dimen_msg, sizeof dimen_msg, "(%dx%d)%s",
                q->real_w >= 0 ? q->real_w : q->orig_w,
                q->real_h >= 0 ? q->real_h : q->orig_h,
-               q->real_w >= 0 && q->real_h >= 0 ? "-" :
+               q->real_w >= 0 && q->real_h >= 0 ?
+                   (q->has_thumbnail ? "-" : "%") :
                    thumbnail && !maxpect ? "+" : "");
   }
   g_snprintf(q->win_title, sizeof q->win_title,
