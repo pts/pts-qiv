@@ -7,6 +7,7 @@
   Original     : http://www.klografx.net/qiv/
 */
 
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -100,7 +101,7 @@ enum Orientation orient( const char * path) {
 #endif  //HAVE_EXIF
 
 /* The caller takes ownership of the returned value. */
-static char* get_thumbnail_filename(const char *filename) {
+static char* get_thumbnail_filename(const char *filename, char *is_maybe_image_file_out) {
   const char *r;
   const char *p;
   char *thumbnail_filename;
@@ -150,6 +151,8 @@ static char* get_thumbnail_filename(const char *filename) {
       filename = tmp_filename;  /* Look for the thumbnail there. */
       goto again;
     }
+  } else if (readlink_result < 0 && errno == ENOENT) {
+    *is_maybe_image_file_out = 0;
   }
 
   return NULL;
@@ -379,12 +382,19 @@ static void update_image_on_error(qiv_image *q);
  *    Load & display image
  */
 void qiv_load_image(qiv_image *q) {
+  /* Don't initialize any variables here, initialize them after load_next_image: */
   struct stat st;
   const char *image_name;
   Imlib_Image *im;
-  int is_stat_ok;
+  char is_stat_ok;
+  /* Used to omit slow disk operations if image_file doesn't exist or isn't
+   * a file.
+   */
+  char is_maybe_image_file;
 
  load_next_image:
+  is_stat_ok = 0;
+  is_maybe_image_file = 1;
   image_name = image_names[image_idx];
   gettimeofday(&load_before, 0);
 
@@ -393,11 +403,16 @@ void qiv_load_image(qiv_image *q) {
 
   q->real_w = q->real_h = -2;
   q->has_thumbnail = FALSE;
-  is_stat_ok = !do_omit_load_stat && 0 == stat(image_name, &st);
+  if (!do_omit_load_stat) {
+    is_stat_ok = 0 == stat(image_name, &st);
+    is_maybe_image_file = is_stat_ok && S_ISREG(st.st_mode);
+  }
   current_mtime = is_stat_ok ? st.st_mtime : 0;
   im = NULL;
   if (thumbnail && fullscreen && (is_stat_ok || maxpect)) {
-    char* th_image_name = get_thumbnail_filename(image_name);
+    char *th_image_name =
+        is_maybe_image_file ?
+        get_thumbnail_filename(image_name, &is_maybe_image_file) : NULL;
     if (th_image_name) {
       im = imlib_load_image(th_image_name);
       if (im && maxpect) {
@@ -416,12 +431,12 @@ void qiv_load_image(qiv_image *q) {
     } else {  /* Use the real, non-thumbnail image instead. */
       imlib_context_set_image(im);
       imlib_free_image();
-      im = imlib_load_image((char*)image_name);
+      im = is_maybe_image_file ? imlib_load_image((char*)image_name) : NULL;
     }
   } else {
-    im = imlib_load_image((char*)image_name);
+    im = is_maybe_image_file ? imlib_load_image((char*)image_name) : NULL;
   }
-  if (thumbnail && !q->has_thumbnail && q->real_w < 0) {
+  if (thumbnail && !q->has_thumbnail && q->real_w < 0 && is_maybe_image_file) {
     FILE *f = fopen(image_name, "rb");
     if (f) {
       get_real_dimensions_fast(f, &q->real_w, &q->real_h);
