@@ -373,14 +373,19 @@ static void get_image_dimensions(
   }
 }
 
+static void update_image_on_error(qiv_image *q);
+
 /*
  *    Load & display image
  */
 void qiv_load_image(qiv_image *q) {
   struct stat st;
-  const char *image_name = image_names[image_idx];
+  const char *image_name;
   Imlib_Image *im;
   int is_stat_ok;
+
+ load_next_image:
+  image_name = image_names[image_idx];
   gettimeofday(&load_before, 0);
 
   if (imlib_context_get_image())
@@ -485,6 +490,15 @@ void qiv_load_image(qiv_image *q) {
   gettimeofday(&load_after, 0);
   load_elapsed = ((load_after.tv_sec +  load_after.tv_usec / 1.0e6) -
                  (load_before.tv_sec + load_before.tv_usec / 1.0e6));
+
+  /* This is a shortcut to avoid stack overflow in the recursion of
+   * qiv_load_image -> update_image -> qiv_load_image -> update_image -> ...
+   * if there are errors loading many subsequent images.
+   */
+  if (q->error) {
+    update_image_on_error(q);
+    goto load_next_image;
+  }
 
   update_image(q, FULL_REDRAW);
 //    if (magnify && !fullscreen) {  // [lc]
@@ -846,6 +860,35 @@ static void update_win_title(qiv_image *q, const char *image_name, double elapse
              q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32, infotext);
 }
 
+static void update_image_on_error(qiv_image *q) {
+  int i;
+
+  if (!q->error) return;  /* Unexpected. */
+  g_snprintf(q->win_title, sizeof q->win_title,
+      "qiv: ERROR! cannot load image: %s", image_names[image_idx]);
+  gdk_beep();
+
+  /* take this image out of the file list */
+  --images;
+  for(i=image_idx;i<images;++i) {
+    image_names[i] = image_names[i+1];
+  }
+
+  /* If deleting the last file out of x */
+  if(images == image_idx)
+    image_idx = 0;
+
+  /* If deleting the only file left */
+  if(!images) {
+#ifdef DEBUG
+    g_print("*** deleted last file in list. Exiting.\n");
+#endif
+    exit(0);
+  }
+
+  /* The caller should continue with the call to: qiv_load_image(q); */
+}
+
 /* Something changed the image.  Redraw it. */
 
 void update_image(qiv_image *q, int mode)
@@ -854,35 +897,13 @@ void update_image(qiv_image *q, int mode)
   Pixmap x_pixmap, x_mask;
   double elapsed;
   struct timeval before, after;
-  int i;
 
   if (q->error) {
-    g_snprintf(q->win_title, sizeof q->win_title,
-        "qiv: ERROR! cannot load image: %s", image_names[image_idx]);
-    gdk_beep();
+    update_image_on_error(q);
+    return qiv_load_image(q);
+  }
 
-    /* take this image out of the file list */
-    --images;
-    for(i=image_idx;i<images;++i) {
-      image_names[i] = image_names[i+1];
-    }
-
-    /* If deleting the last file out of x */
-    if(images == image_idx)
-      image_idx = 0;
-
-    /* If deleting the only file left */
-    if(!images) {
-#ifdef DEBUG
-      g_print("*** deleted last file in list. Exiting.\n");
-#endif
-      exit(0);
-    }
-    /* else load the next image */
-    qiv_load_image(q);
-    return;
-
-  } else {
+  {
     if (mode == REDRAW || mode == FULL_REDRAW)
       setup_imlib_color_modifier(q->mod);
 
