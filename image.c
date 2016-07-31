@@ -22,7 +22,6 @@
 static void setup_win(qiv_image *);
 //static void setup_magnify(qiv_image *, qiv_mgl *); // [lc]
 static int used_masks_before=0;
-static struct timeval load_before, load_after;
 static double load_elapsed;
 static GdkCursor *cursor, *visible_cursor, *invisible_cursor;
 
@@ -382,15 +381,18 @@ static void update_image_on_error(qiv_image *q);
  *    Load & display image
  */
 void qiv_load_image(qiv_image *q) {
-  /* Don't initialize any variables here, initialize them after load_next_image: */
+  /* Don't initialize most variables here, initialize them after load_next_image: */
   struct stat st;
   const char *image_name;
   Imlib_Image *im;
+  struct timeval load_before, load_after;
+
   char is_stat_ok;
   /* Used to omit slow disk operations if image_file doesn't exist or isn't
    * a file.
    */
   char is_maybe_image_file;
+  char is_first_error = 1;
 
  load_next_image:
   is_stat_ok = 0;
@@ -448,31 +450,57 @@ void qiv_load_image(qiv_image *q) {
     q->error = 1;
     q->orig_w = 400;
     q->orig_h = 300;
-  } else { /* Retrieve image properties */
-    imlib_context_set_image(im);
-    q->error = 0;
-    q->orig_w = imlib_image_get_width();
-    q->orig_h = imlib_image_get_height();
-    if (q->orig_w >= (1 << 23) / q->orig_h) {
-      /* Workaround for Imlib2 1.4.6 on Ubuntu Trusty: PNG images with an
-       * alpha channel and pixel count >= (1 << 23) are displayed as black.
-       * imlib_image_query_pixel returns the correct value, but
-       * imlib_render_pixmaps_for_whole_image_at_size renders only black
-       * pixels if unzoomed.
-       */
-      Imlib_Color c;
-      /* Without this call, imlib_image_set_has_alpha(0) is too early, and
-       * it has no effect.
-       */
-      imlib_image_query_pixel(0, 0, &c);
-      imlib_image_set_has_alpha(0);
+
+    if (to_root || to_root_t || to_root_s) {
+      fprintf(stderr, "qiv: cannot load background_image\n");
+      qiv_exit(1);
     }
-#ifdef HAVE_EXIF
-    if (autorotate) {
-      transform( q, orient( image_name));
+
+    /* Shortcut to speed up lots of subsequent load failures. */
+    if (is_first_error) {
+      check_size(q, TRUE);
+      if (first) {
+        setup_win(q);
+        first = 0;
+      }
+      gdk_window_set_background(q->win, &error_bg);
+      gdk_beep();
+      is_first_error = 0;
     }
-#endif
+
+    /* TODO(pts): Avoid the slow loop of copying pointers around in update_image_on_error. */
+    update_image_on_error(q);
+    /* This is a shortcut to avoid stack overflow in the recursion of
+     * qiv_load_image -> update_image -> qiv_load_image -> update_image -> ...
+     * if there are errors loading many subsequent images.
+     */
+    goto load_next_image;
   }
+
+  /* Retrieve image properties */
+  imlib_context_set_image(im);
+  q->error = 0;
+  q->orig_w = imlib_image_get_width();
+  q->orig_h = imlib_image_get_height();
+  if (q->orig_w >= (1 << 23) / q->orig_h) {
+    /* Workaround for Imlib2 1.4.6 on Ubuntu Trusty: PNG images with an
+     * alpha channel and pixel count >= (1 << 23) are displayed as black.
+     * imlib_image_query_pixel returns the correct value, but
+     * imlib_render_pixmaps_for_whole_image_at_size renders only black
+     * pixels if unzoomed.
+     */
+    Imlib_Color c;
+    /* Without this call, imlib_image_set_has_alpha(0) is too early, and
+     * it has no effect.
+     */
+    imlib_image_query_pixel(0, 0, &c);
+    imlib_image_set_has_alpha(0);
+  }
+#ifdef HAVE_EXIF
+  if (autorotate) {
+    transform( q, orient( image_name));
+  }
+#endif
 
   check_size(q, TRUE);
 
@@ -483,10 +511,6 @@ void qiv_load_image(qiv_image *q) {
 
   /* desktop-background -> exit */
   if (to_root || to_root_t || to_root_s) {
-    if (!im) {
-      fprintf(stderr, "qiv: cannot load background_image\n");
-      qiv_exit(1);
-    }
     set_desktop_image(q);
     if(slide)
       return;
@@ -494,7 +518,7 @@ void qiv_load_image(qiv_image *q) {
       qiv_exit(0);
   }
 
-  gdk_window_set_background(q->win, im ? &image_bg : &error_bg);
+  gdk_window_set_background(q->win, &image_bg);
 
   if (do_grab || (fullscreen && !disable_grab) ) {
     gdk_keyboard_grab(q->win, FALSE, CurrentTime);
@@ -502,18 +526,11 @@ void qiv_load_image(qiv_image *q) {
       GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_ENTER_NOTIFY_MASK |
       GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK, NULL, NULL, CurrentTime);
   }
+
   gettimeofday(&load_after, 0);
+  /* load_elapsed used by update_image. */
   load_elapsed = ((load_after.tv_sec +  load_after.tv_usec / 1.0e6) -
                  (load_before.tv_sec + load_before.tv_usec / 1.0e6));
-
-  /* This is a shortcut to avoid stack overflow in the recursion of
-   * qiv_load_image -> update_image -> qiv_load_image -> update_image -> ...
-   * if there are errors loading many subsequent images.
-   */
-  if (q->error) {
-    update_image_on_error(q);
-    goto load_next_image;
-  }
 
   update_image(q, FULL_REDRAW);
 //    if (magnify && !fullscreen) {  // [lc]
@@ -914,6 +931,7 @@ void update_image(qiv_image *q, int mode)
   struct timeval before, after;
 
   if (q->error) {
+    gdk_beep();
     update_image_on_error(q);
     return qiv_load_image(q);
   }
