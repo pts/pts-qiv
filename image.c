@@ -296,7 +296,7 @@ static int get_image_dimensions_fast(
       *w_out = (unsigned char)head[18] | (unsigned char)head[19] << 8;
       *h_out = (unsigned char)head[20] | (unsigned char)head[21] << 8;
       break;
-     case 40:
+     case 40: case 124:
       *w_out = (unsigned char)head[18]       | (unsigned char)head[19] << 8 |
                (unsigned char)head[20] << 16 | (unsigned char)head[21] << 24;
       *h_out = (unsigned char)head[22] | (unsigned char)head[23] << 8 |
