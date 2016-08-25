@@ -269,7 +269,8 @@ static int get_image_dimensions_fast(
       if ((c = getc(f)) < 0) return -2;  /* Truncated. */
       ss += c;
       if (ss < 2) return -5;  /* Segment too short. */
-      if ((m & ~7) == 0xc0) {  /* SOF0 ... SOF7. */
+      /* SOF0 ... SOF15. */
+      if (0xc0 <= m && m <= 0xcf && m != 0xc4 && m != 0xc8 && m != 0xcc) {
         ss -= 2;
         if (ss < 5) return -7;  /* SOF segment too short. */
         for (i = 0; i < 5; ++i) {
