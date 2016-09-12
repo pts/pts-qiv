@@ -439,13 +439,6 @@ void qiv_load_image(qiv_image *q) {
   } else {
     im = is_maybe_image_file ? imlib_load_image((char*)image_name) : NULL;
   }
-  if (thumbnail && !q->has_thumbnail && q->real_w < 0 && is_maybe_image_file) {
-    FILE *f = fopen(image_name, "rb");
-    if (f) {
-      get_real_dimensions_fast(f, &q->real_w, &q->real_h);
-      fclose(f);
-    }
-  }
 
   if (!im) { /* error */
     q->error = 1;
@@ -476,6 +469,14 @@ void qiv_load_image(qiv_image *q) {
      * if there are errors loading many subsequent images.
      */
     goto load_next_image;
+  }
+
+  if (thumbnail && !q->has_thumbnail && q->real_w < 0 && is_maybe_image_file) {
+    FILE *f = fopen(image_name, "rb");
+    if (f) {
+      get_real_dimensions_fast(f, &q->real_w, &q->real_h);
+      fclose(f);
+    }
   }
 
   /* Retrieve image properties */
