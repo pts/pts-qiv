@@ -129,8 +129,10 @@ static char* get_thumbnail_filename(const char *filename, char *is_maybe_image_f
   }
   free(thumbnail_filename);
 
-  readlink_result = do_try_readlink ? readlink(filename, link_target, sizeof(link_target)) : -1;
-  if (readlink_result > 0 && (size_t)readlink_result < sizeof(link_target)) {
+  if (!do_try_readlink) {
+    /* Already followed the .git/annex/object symlink, don't try to follow another symlink. */
+  } else if ((readlink_result = readlink(filename, link_target, sizeof(link_target))) > 0 &&
+             (size_t)readlink_result < sizeof(link_target)) {
     /* It's a symlink and it's not too long. For example (198 bytes):
      * ../.git/annex/objects/G1/mX/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg/SHA256E-s12345--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg
      */
