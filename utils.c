@@ -78,9 +78,11 @@ int move2trash()
     ptr += 1;
   }
 
+#if 0  /* We don't remove the trashfile, it may be our precious single copy of our image. */
   unlink(trashfile); /* Just in case it already exists... */
+#endif
   if(rename(filename,trashfile)) {
-    g_print("Error: Could not rename '%s' to '%s'\a\n",filename,trashfile);
+    g_print("Error: Could not rename '%s' to '%s': %s\a\n", filename, trashfile, strerror(errno));
     return 1;
   } else {
     qiv_deletedfile *del;
