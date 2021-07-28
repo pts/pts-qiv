@@ -212,6 +212,7 @@ extern void jump2image(char *);
 extern void run_command(qiv_image *, char *, int, char *, int *, const char ***);
 extern void finish(int);
 extern void next_image(int);
+void next_image_dir(int direction);
 extern int checked_atoi(const char *);
 extern void usage(char *, int);
 extern void show_help(char *, int);

@@ -73,8 +73,8 @@ const char *helpstrs[] =
 {
     VERSION_FULL,
     "",
-    "space/left mouse/wheel down      next picture",
-    "backspace/right mouse/wheel up   previous picture",
+    "space/left mouse/wheel down      next picture  (with ctrl, next dir)",
+    "backspace/right mouse/wheel up   previous picture  (with ctrl, prev dir)",
     "PgDn                             5 pictures forward",
     "PgUp                             5 pictures backward",
     "q/ESC/middle mouse               exit",

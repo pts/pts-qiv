@@ -769,8 +769,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case ' ':
           next_image:
-            snprintf(infotext, sizeof infotext, "(Next picture)");
-            next_image(1);
+            if  (ev->key.state & GDK_CONTROL_MASK) {
+              snprintf(infotext, sizeof infotext, "(Next picture directory)");
+              next_image_dir(1);
+            } else {
+              snprintf(infotext, sizeof infotext, "(Next picture)");
+              next_image(1);
+            }
             if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
             qiv_load_image(q);
             break;
@@ -789,8 +794,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case GDK_BackSpace:
           previous_image:
-            snprintf(infotext, sizeof infotext, "(Previous picture)");
-            next_image(-1);
+            if  (ev->key.state & GDK_CONTROL_MASK) {
+              snprintf(infotext, sizeof infotext, "(Previous picture directory)");
+              next_image_dir(-1);
+            } else {
+              snprintf(infotext, sizeof infotext, "(Previous picture)");
+              next_image(-1);
+            }
             if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
             qiv_load_image(q);
             break;

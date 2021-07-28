@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <gdk/gdkx.h>
+/*#include <glib/gfileutils.h>*/  /* G_PATH_SEPARATOR instead of /, but everything else uses / */
 #include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -423,6 +424,7 @@ void finish(int sig)
   exit(0);
 }
 
+
 /*
   Update selected image index image_idx
   Direction determines if the next or the previous
@@ -444,6 +446,30 @@ void next_image(int direction)
       image_idx += images;
   }
 
+}
+
+/*
+  Update selected image index image_idx, jumping to the first image
+  directory different from the current image directory (if possible).
+  Direction (must be 1 or -1) determines if the next or the previous image
+  is selected.
+*/
+void next_image_dir(int direction) {
+  const int old_idx = image_idx;
+  const int delta = (direction < 0) ? -1 : 1;
+  const char *p = image_names[old_idx], *q = p + strlen(p);
+  while (p != q && q[-1] != '/') --q;
+  {
+    const size_t prefix_size = q - p;
+    for (;;) {
+      image_idx = (image_idx + delta) % images;
+      if (image_idx < 0) image_idx += images;
+      if (image_idx == old_idx) break;  /* Prevent infinite loop. TODO(pts): Report error or warning. */
+      /* fprintf(stderr, "info: trying image=(%s)\n", image_names[image_idx]); */
+      if (0 != strncmp(image_names[image_idx], p, prefix_size)) break;
+    }
+  }
+  /* fprintf(stderr, "info: using image=(%s)\n", image_names[image_idx]); */
 }
 
 int checked_atoi (const char *s)
