@@ -353,6 +353,13 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
     return;
   }
 
+  /* Move marked single-line output to infotext (lower right corner). */
+  if (*numlines == 1 && lines[0][0] == '\007') {
+    strncpy(infotext, lines[0] + 1, sizeof(infotext) - 1);
+    infotext[sizeof(infotext) - 1] = '\0';
+    *numlines = 0;
+  }
+
   /* If image modified reload, otherwise redraw */
   if (stat(filename, &after) == 0 &&
       before.st_size == after.st_size &&
