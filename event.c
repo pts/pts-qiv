@@ -167,6 +167,15 @@ void qiv_display_text_window(qiv_image *q, const char *infotextdisplay,
   }
 }
 
+static void run_command_str(qiv_image *q, const char *str) {
+  int numlines = 0;
+  const int tab_mode = 0;
+  const char **lines;
+  run_command(q, str, tab_mode, image_names[image_idx], &numlines, &lines);
+  if (lines && numlines)
+    qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
+}
+
 void qiv_handle_event(GdkEvent *ev, gpointer data)
 {
   gboolean exit_slideshow = FALSE;
@@ -758,11 +767,15 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case GDK_Return:
           case GDK_KP_Enter:
-            snprintf(infotext, sizeof infotext, "(Reset size)");
-            reload_image(q);
-            zoom_factor = fixed_zoom_factor;  /* reset zoom */
-            check_size(q, TRUE);
-            update_image(q, REDRAW);
+            if (do_enter_command) {
+              run_command_str(q, ":enter");
+            } else {
+              snprintf(infotext, sizeof infotext, "(Reset size)");
+              reload_image(q);
+              zoom_factor = fixed_zoom_factor;  /* reset zoom */
+              check_size(q, TRUE);
+              update_image(q, REDRAW);
+            }
             break;
 
             /* Next picture - or loop to the first */
@@ -1129,15 +1142,8 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'W':
           case 'Y':
           case 'Z':
-          {
-            int numlines = 0;
-            const int tab_mode = 0;
-            const char **lines;
-            run_command(q, ev->key.string, tab_mode, image_names[image_idx], &numlines, &lines);
-            if (lines && numlines)
-              qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
-          }
-          break;
+            run_command_str(q, ev->key.string);
+            break;
 
           default:
             exit_slideshow = FALSE;

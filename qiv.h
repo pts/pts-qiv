@@ -138,6 +138,8 @@ extern int     to_root_s;
 extern int     transparency;
 #define QIV_FLAG_DO_ASSUME_FILES 300
 extern int     do_assume_files;
+#define QIV_FLAG_DO_ENTER_COMMAND 302
+extern int     do_enter_command;
 extern int     do_grab;
 #define QIV_FLAG_DO_OMIT_LOAD_STAT 301
 extern int     do_omit_load_stat;
@@ -209,7 +211,7 @@ extern int  move2trash(void);
 extern int  copy2select(void);
 extern int  undelete_image(void);
 extern void jump2image(char *);
-extern void run_command(qiv_image *, char *, int, char *, int *, const char ***);
+extern void run_command(qiv_image *, const char *, int, char *, int *, const char ***);
 extern void finish(int);
 extern void next_image(int);
 void next_image_dir(int direction);

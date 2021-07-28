@@ -242,7 +242,7 @@ int undelete_image()
 #define MAXLINES 1024
 
 /* run a command ... */
-void run_command(qiv_image *q, char *n, int tab_mode, char *filename, int *numlines, const char ***output)
+void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int *numlines, const char ***output)
 {
   static char *buffer = 0;
   static const char *lines[MAXLINES + 1];
@@ -513,6 +513,7 @@ void show_help(char *name, int exit_status)
           "    --contrast, -c x       Set contrast to x (-32..32)\n"
           "    --display x            Open qiv window on display x\n"
           "    --do_assume_files      Assume that all images (command line or list) are files\n"
+          "    --do_enter_command     Run qiv-command :enter on <Enter>\n"
           "    --do_grab, -a          Grab the pointer in windowed mode\n"
           "    --do_omit_load_stat    Don't call stat at image load, don't track changes\n"
           "    --disable_grab, -G     Disable pointer/kbd grab in fullscreen mode\n"

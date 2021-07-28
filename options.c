@@ -27,6 +27,7 @@ static char *short_options = "ab:c:d:efg:hilmno:prstuvw:xyzA:BDF:GIMNPRSTW:X:";
 static struct option long_options[] =
 {
     {"do_assume_files",  0, NULL, QIV_FLAG_DO_ASSUME_FILES},
+    {"do_enter_command", 0, NULL, QIV_FLAG_DO_ENTER_COMMAND},
     {"do_grab",          0, NULL, 'a'},
     {"do_omit_load_stat",0, NULL, QIV_FLAG_DO_OMIT_LOAD_STAT},
     {"brightness",       1, NULL, 'b'},
@@ -208,6 +209,8 @@ void options_read(int argc, char **argv, qiv_image *q)
             case 'a': do_grab=1;
                 break;
             case QIV_FLAG_DO_ASSUME_FILES: do_assume_files=1;
+                break;
+            case QIV_FLAG_DO_ENTER_COMMAND: do_enter_command=1;
                 break;
             case QIV_FLAG_DO_OMIT_LOAD_STAT: do_omit_load_stat=1;
                 break;
