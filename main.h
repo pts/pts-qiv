@@ -50,6 +50,7 @@ int     do_assume_files; /* Assume that all images (command line or list) are fi
 int	do_grab; /* grab keboard/pointer (default off) */
 int     do_omit_load_stat; /* omit the stat(2) system call at load_image time, don't track changes to the file (current_mtime); useful if the thumbnail is much faster */
 int     do_enter_command; /* run qiv-command :enter on <Enter> */
+int     do_f_commands; /* run qiv-command :f1 etc on <F1> etc. */
 int disable_grab; /* disable keyboard/mouse grabbing in fullscreen mode */
 int	max_rand_num; /* the largest random number range we will ask for */
 int	fixed_window_size = 0; /* window width fixed size/off */

@@ -140,6 +140,8 @@ extern int     transparency;
 extern int     do_assume_files;
 #define QIV_FLAG_DO_ENTER_COMMAND 302
 extern int     do_enter_command;
+#define QIV_FLAG_DO_F_COMMANDS 303
+extern int     do_f_commands;
 extern int     do_grab;
 #define QIV_FLAG_DO_OMIT_LOAD_STAT 301
 extern int     do_omit_load_stat;

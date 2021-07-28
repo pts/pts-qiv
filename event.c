@@ -430,10 +430,33 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
       } else {
         switch (ev->key.keyval) {
 
+          /* Function keys to qiv-command. */
+
+          case GDK_F2:
+          case GDK_F3:
+          case GDK_F4:
+          case GDK_F5:
+          case GDK_F6:
+          case GDK_F7:
+          case GDK_F8:
+          case GDK_F9:
+          case GDK_F10:
+          do_f_command:
+            if (do_f_commands) {
+              char tmp[10 + 3 * sizeof(int)];
+              sprintf(tmp, ":f%d", ev->key.keyval - (GDK_F1 - 1));  /* ":f1" ... ":f12" */
+              run_command_str(q, tmp);
+            } else {
+              goto do_default;
+            }
+            break;
+
           /* Help */
 
-          case '?':
           case GDK_F1:
+            if (do_f_commands) goto do_f_command;
+            /* fallthrough */
+          case '?':
             qiv_display_text_window(q, "(Showing Help)", helpstrs,"Press any key...");
             break;
 
@@ -1010,6 +1033,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
             /* Decrease slideshow delay */
           case GDK_F11:
+            if (do_f_commands) goto do_f_command;
             exit_slideshow = FALSE;
             if (delay > 1000) {
               delay-=1000;
@@ -1039,6 +1063,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
             /* Increase slideshow delay */
           case GDK_F12:
+            if (do_f_commands) goto do_f_command;
             exit_slideshow = FALSE;
             delay+=1000;
             snprintf(infotext, sizeof infotext, "(Slideshow-Delay: %d seconds (+1)", delay/1000);
@@ -1146,6 +1171,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             break;
 
           default:
+          do_default:
             exit_slideshow = FALSE;
             break;
         }

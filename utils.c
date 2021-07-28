@@ -514,6 +514,7 @@ void show_help(char *name, int exit_status)
           "    --display x            Open qiv window on display x\n"
           "    --do_assume_files      Assume that all images (command line or list) are files\n"
           "    --do_enter_command     Run qiv-command :enter on <Enter>\n"
+          "    --do_f_commands        Run qiv-command :f1 etc. on <F1> etc.\n"
           "    --do_grab, -a          Grab the pointer in windowed mode\n"
           "    --do_omit_load_stat    Don't call stat at image load, don't track changes\n"
           "    --disable_grab, -G     Disable pointer/kbd grab in fullscreen mode\n"
