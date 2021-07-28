@@ -23,7 +23,7 @@
 extern char *optarg;
 extern int optind, opterr, optopt;
 
-static char *short_options = "ab:c:d:efg:hilmno:prstuvw:xyzA:BDF:GIMNPRSTW:X:";
+static char *short_options = "ab:c:d:efg:hijlmno:prstuvw:xyzA:BDF:GIMNPRSTW:X:";
 static struct option long_options[] =
 {
     {"do_assume_files",  0, NULL, QIV_FLAG_DO_ASSUME_FILES},
