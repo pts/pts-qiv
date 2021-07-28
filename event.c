@@ -1093,6 +1093,10 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           }
           break;
 
+	  case '`':
+	  case '~':
+	  case '\\':
+	  case '|':
           case '0':
           case '1':
           case '2':
