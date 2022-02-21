@@ -1077,7 +1077,7 @@ void update_image(qiv_image *q, int mode)
 
 
     if (statusbar_fullscreen) {
-      {
+      {  /* Draw the statusbar to the bottom right corner of the fullscreen window. */
 
         gdk_draw_rectangle(q->win, q->bg_gc, 0,
           statusbar_x-q->text_w-10, statusbar_y-q->text_h-10, q->text_w+5, q->text_h+5);
