@@ -940,6 +940,7 @@ void update_image(qiv_image *q, int mode)
     return qiv_load_image(q);
   }
 
+  q->is_updated = TRUE;
   {
     if (mode == REDRAW || mode == FULL_REDRAW)
       setup_imlib_color_modifier(q->mod);

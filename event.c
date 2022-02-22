@@ -447,8 +447,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           switch_to_ext_edit_mode(q);
         } else if (ev->key.keyval == GDK_Return || ev->key.keyval == GDK_KP_Enter) {
           jump2image(jcmd);
+          q->is_updated = FALSE;
           qiv_load_image(q);  /* Does update_image(q, FULL_REDRAW) unless in slideshow mode. */
-          if (!slide) is_multiline_window_displayed = FALSE;  /* Speedup to avoid double FULL_REDRAW. */
+          if (q->is_updated) is_multiline_window_displayed = FALSE;  /* Speedup to avoid another FULL_REDRAW. */
           switch_to_normal_mode(q);
         } else {  /* Record keystroke. */
           apply_to_jcmd(&ev->key);

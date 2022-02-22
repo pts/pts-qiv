@@ -70,6 +70,7 @@ typedef struct _qiv_image {
   int statusbar_was_on;  /* true if statusbar was visible last frame */
   int exposed;           /* window became visible */
   int drag;              /* user is currently dragging the image */
+  int is_updated;        /* was update_image called? */
   double drag_start_x, drag_start_y; /* position of cursor at drag start */
   int drag_win_x, drag_win_y; /* position of win at drag start */
 //  char        infotext[BUF_LEN];
