@@ -526,6 +526,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             }
             qiv_display_multiline_window(q, "(Expanded command)", mess,
                                          "Press <Return> to send, <Esc> to abort"); // [lc]
+            do_make_multiline_window_unclean = FALSE;
           } else if (lines && numlines) {
             switch_to_confirm_mode(q, lines, FALSE);
             jcmd[jidx = 0] = '\0';
@@ -568,6 +569,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* fallthrough */
           case '?':
             switch_to_confirm_mode(q, helpstrs, TRUE);
+            do_make_multiline_window_unclean = FALSE;
             break;
 
             /* Exit */
