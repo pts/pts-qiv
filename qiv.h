@@ -190,6 +190,7 @@ extern void reset_coords(qiv_image *);
 extern void check_size(qiv_image *, gint);
 extern void render_to_pixmap(qiv_image *, double *);
 extern void update_image(qiv_image *, int);
+extern void update_image_noflush(qiv_image *, int);
 extern void reset_mod(qiv_image *);
 extern void destroy_image(qiv_image *q);
 extern void center_image(qiv_image *q);

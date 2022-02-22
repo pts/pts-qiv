@@ -925,10 +925,8 @@ static void update_image_on_error(qiv_image *q) {
   /* The caller should continue with the call to: qiv_load_image(q); */
 }
 
-/* Something changed the image.  Redraw it. */
-
-void update_image(qiv_image *q, int mode)
-{
+/* Something changed the image. Redraw it. Don't (always) flush. */
+void update_image_noflush(qiv_image *q, int mode) {
   GdkPixmap * m = NULL;
   Pixmap x_pixmap, x_mask;
   double elapsed;
@@ -1098,9 +1096,12 @@ void update_image(qiv_image *q, int mode)
     q->text_oh = q->text_h;
     q->statusbar_was_on = statusbar_fullscreen;
   }
-  gdk_flush();
 }
 
+void update_image(qiv_image *q, int mode) {
+  update_image_noflush(q, mode);
+  gdk_flush();
+}
 
 void reset_mod(qiv_image *q)
 {
