@@ -365,8 +365,7 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
       before.st_size == after.st_size &&
       before.st_ctime == after.st_ctime &&
       before.st_mtime == after.st_mtime)
-    /* TODO(pts): Why do we need FULL_REDRAW (causing flicker)? Do we need to overdraw the text input box? We definitely want to redraw the infotext. */
-    update_image(q, FULL_REDRAW);
+    update_image(q, STATUSBAR);
   else
     qiv_load_image(q);
 }

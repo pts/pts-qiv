@@ -506,7 +506,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           } else {
             qiv_hide_multiline_window(q);
           }
-          /* This may reload the image. */
+          /* This may reload the image. Typically it only updates the STATUSBAR. */
           run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
           if (!tab_mode && lines && numlines > 1 && lines[1][0] == '\007') {
             /* Let an error message starting with \007 propagate */
