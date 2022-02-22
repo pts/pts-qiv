@@ -17,9 +17,9 @@
 
 typedef enum QivMode {
   NORMAL = 0,     /* Waiting for single-keystroke commands. */
-  JUMP_EDIT = 2,  /* Editing the jump target string in jcmd. */
-  EXT_EDIT = 3,   /* Editing the external qiv-command argument in jcmd. */
-  CONFIRM = 4,    /* Waiting for any keystoke ( `Push any key...') while displaying message in text window. */
+  JUMP_EDIT = 2,  /* Editing the jump target string in jcmd. Edit buffer not displayed. */
+  EXT_EDIT = 3,   /* Editing the single-line external qiv-command argument in jcmd. Edit state displayed in multiline_window, starting with the argument. */
+  CONFIRM = 4,    /* Waiting for any keystoke (`Push any key...') while displaying message in multiline_window. */
 } QivMode;
 static QivMode qiv_mode;  /* NORMAL by default. */
 static char   jcmd[512];  /* Single-line text edit buffer used by both JUMP_EDIT and EXT_EDIT. Always '\0'-terminated. */
@@ -27,7 +27,7 @@ static int    jidx;  /* Cursor position in jcmd. Currently it always points to t
 static const char *mess_buf[2] = { jcmd, NULL};
 static const char **mess = mess_buf;
 static int    cursor_timeout;
-static gboolean displaying_textwindow = FALSE;
+static gboolean is_multiline_window_displayed = FALSE;
 
 static void qiv_enable_mouse_events(qiv_image *q)
 {
@@ -98,9 +98,9 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
   update_image(q, MOVED);
 }
 
-static void qiv_hide_text_window(qiv_image *q) {
-  if (!displaying_textwindow) return;
-  displaying_textwindow = FALSE;
+static void qiv_hide_multiline_window(qiv_image *q) {
+  if (!is_multiline_window_displayed) return;
+  is_multiline_window_displayed = FALSE;
 #if 1
   update_image(q, FULL_REDRAW);
 #else  /* TODO(pts): Avoid flickering, just draw the previous rectangles with background. */
@@ -110,15 +110,15 @@ static void qiv_hide_text_window(qiv_image *q) {
 #endif
 }
 
-static void qiv_display_text_window(qiv_image *q, const char *infotextdisplay,
-                                    const char *strs[], const char *continue_msg) {
+static void qiv_display_multiline_window(qiv_image *q, const char *infotextdisplay,
+                                         const char *strs[], const char *continue_msg) {
   int temp, text_w = 0, text_h, i, maxlines;
   int width, height, text_left;
 
   int ascent;
   int descent;
 
-  displaying_textwindow = TRUE;
+  is_multiline_window_displayed = TRUE;
 
   ascent  = PANGO_PIXELS(pango_font_metrics_get_ascent(metrics));
   descent = PANGO_PIXELS(pango_font_metrics_get_descent(metrics));
@@ -186,7 +186,7 @@ static void qiv_display_text_window(qiv_image *q, const char *infotextdisplay,
 
 static void switch_to_confirm_mode(qiv_image *q, const char **lines) {
   qiv_mode = CONFIRM;
-  qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
+  qiv_display_multiline_window(q, "(Command output)", lines, "Push any key...");
   jidx = 0;
   jcmd[jidx = 0] = '\0';
 }
@@ -195,7 +195,7 @@ static void switch_to_normal_mode(qiv_image *q) {
   qiv_mode = NORMAL;
   jidx = 0;
   jcmd[jidx = 0] = '\0';
-  qiv_hide_text_window(q);
+  qiv_hide_multiline_window(q);
 }
 
 static void run_command_str(qiv_image *q, const char *str) {
@@ -231,8 +231,8 @@ static void switch_to_ext_edit_mode(qiv_image *q) {
   }
   qiv_mode = EXT_EDIT;
   // TODO(pts): Make typing faster on a large image.
-  qiv_display_text_window(q, "(Tab-start command)", mess,
-                          "Press <Return> to send, <Esc> to abort"); // [lc]
+  qiv_display_multiline_window(q, "(Tab-start command)", mess,
+                               "Press <Return> to send, <Esc> to abort"); // [lc]
 }
 
 /* Returns bool indicating whether jcmd has changed. */
@@ -256,10 +256,10 @@ static gboolean apply_to_jcmd(const GdkEventKey *evk) {
   return FALSE;
 }
 
-static void apply_to_jcmd_and_text_window(qiv_image *q, const GdkEventKey *evk) {
+static void apply_to_jcmd_and_multiline_window(qiv_image *q, const GdkEventKey *evk) {
   if (apply_to_jcmd(evk)) {
-    qiv_display_text_window(q, "(Editing command)", mess,
-                            "Press <Return> to send, <Esc> to abort");
+    qiv_display_multiline_window(q, "(Editing command)", mess,
+                                 "Press <Return> to send, <Esc> to abort");
   }
 }
 
@@ -447,7 +447,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
         } else if (ev->key.keyval == GDK_Return || ev->key.keyval == GDK_KP_Enter) {
           jump2image(jcmd);
           qiv_load_image(q);  /* Does update_image(q, FULL_REDRAW) unless in slideshow mode. */
-          if (!slide) displaying_textwindow = FALSE;  /* Speedup to avoid double FULL_REDRAW. */
+          if (!slide) is_multiline_window_displayed = FALSE;  /* Speedup to avoid double FULL_REDRAW. */
           switch_to_normal_mode(q);
         } else {  /* Record keystroke. */
           apply_to_jcmd(&ev->key);
@@ -465,10 +465,10 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           const char **lines;
 
           if (tab_mode) {
-            qiv_display_text_window(q, "(Tab completion)", mess,
-                                    "<Tab> completion running...");
+            qiv_display_multiline_window(q, "(Tab completion)", mess,
+                                         "<Tab> completion running...");
           } else {
-            qiv_hide_text_window(q);
+            qiv_hide_multiline_window(q);
           }
           /* This may reload the image. */
           run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
@@ -489,8 +489,8 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               mess = lines;
             }
             // TODO(pts): Make typing faster on a large image.
-            qiv_display_text_window(q, "(Expanded command)", mess,
-                                    "Press <Return> to send, <Esc> to abort"); // [lc]
+            qiv_display_multiline_window(q, "(Expanded command)", mess,
+                                         "Press <Return> to send, <Esc> to abort"); // [lc]
           } else if (lines && numlines) {
             switch_to_confirm_mode(q, lines);
             jcmd[jidx = 0] = '\0';
@@ -498,7 +498,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             switch_to_normal_mode(q);
           }
         } else {  /* Record keystroke. */
-          apply_to_jcmd_and_text_window(q, &ev->key);
+          apply_to_jcmd_and_multiline_window(q, &ev->key);
         }
       } else {  /* qiv_mode == NORMAL. */
         switch (ev->key.keyval) {
@@ -531,7 +531,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             if (do_f_commands) goto do_f_command;
             /* fallthrough */
           case '?':
-            qiv_display_text_window(q, "(Showing Help)", helpstrs,"Press any key...");
+            qiv_display_multiline_window(q, "(Showing Help)", helpstrs, "Press any key...");
             break;
 
             /* Exit */
@@ -1174,7 +1174,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             qiv_mode = EXT_EDIT;
             jcmd[jidx = 0] = '\0';
             mess = mess_buf;
-            apply_to_jcmd_and_text_window(q, &ev->key);  /* Start by typing '^'. */
+            apply_to_jcmd_and_multiline_window(q, &ev->key);  /* Start by typing '^'. */
             break;
 
 	  case '`':
