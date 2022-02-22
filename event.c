@@ -436,8 +436,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
       if (ev->key.keyval == 'q' && ev->key.state & GDK_CONTROL_MASK) {
         qiv_exit(0);
       } else if (qiv_mode == CONFIRM) {  /* After `Push any key...'. */
-        /* TODO(pts): Do nothing if a modifier key (e.g. <Ctrl>) is pressed. */
-        switch_to_normal_mode(q);
+        if (!ev->key.is_modifier) switch_to_normal_mode(q);
       } else if (qiv_mode == JUMP_EDIT) {
         /* printf("evkey=0x%x modifiers=0x%x\n", ev->key.keyval, ev->key.state); */
         if (ev->key.keyval == GDK_Escape ||
