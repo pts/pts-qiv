@@ -122,6 +122,7 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   int width, height, text_left;
   qiv_multiline_window_state mws2;
   int ascent, descent;
+  gboolean has_infotext_changed;
 
   ascent  = PANGO_PIXELS(pango_font_metrics_get_ascent(metrics));
   descent = PANGO_PIXELS(pango_font_metrics_get_descent(metrics));
@@ -157,9 +158,14 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   mws2.h = text_h + 7;
   mws2.is_displayed = mws2.is_clean = TRUE;
 
-  snprintf(infotext, sizeof infotext, "%s", infotextdisplay);
+  has_infotext_changed = strncmp(infotext, infotextdisplay, sizeof(infotext) - 1) != 0;
+  if (has_infotext_changed) {
+    strncpy(infotext, infotextdisplay, sizeof(infotext) - 1);
+    infotext[sizeof(infotext) - 1] = '\0';
+  }
   if (!mws.is_displayed || (mws.is_clean && mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h)) {
     /* update_image_noflush not needed, we skip it to prevent flickering. */
+    if (has_infotext_changed) update_image_noflush(q, MOVED);  /* Update statusbar, */
   } else if (mws.is_clean && mws.x <= mws2.x && mws.y == mws2.y && mws.x + mws.w >= mws2.x + mws2.w && mws.y + mws.h == mws2.y + mws2.h) {
     /* Condition above: multiline_window became narrower, typically because of <Backspace>. */
     gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, mws2.x - mws.x, mws.h);
