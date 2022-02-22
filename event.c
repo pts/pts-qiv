@@ -118,6 +118,7 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   int ascent;
   int descent;
 
+  if (is_multiline_window_displayed) qiv_hide_multiline_window(q);
   is_multiline_window_displayed = TRUE;
 
   ascent  = PANGO_PIXELS(pango_font_metrics_get_ascent(metrics));
