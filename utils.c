@@ -8,6 +8,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>  /* getenv(...) */
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -237,6 +238,45 @@ int undelete_image()
   return 0;
 }
 
+static char ascii_toupper(char c) {
+  return c - ((c - 'a' + 0U <= 'z' - 'a' + 0U) << 5);
+}
+
+/* This works on Linux. It checks ending with `.UTF-8'. */
+static const char *is_utf8_locale(const char *p) {
+  const char *q;
+  return p && (q = p + strlen(p)) != NULL &&
+         q != p && *--q == '8' &&
+         q != p && (q -= q[-1] == '-') &&
+         q != p && ascii_toupper(*--q) == 'F' &&
+         q != p && ascii_toupper(*--q) == 'T' &&
+         q != p && ascii_toupper(*--q) == 'U' &&
+         q != p && q[-1] == '.' ? q : NULL;
+}
+
+/* This works on Linux, by changing environemnt variables LC_ALL, LC_CTYPE and LANG. */
+static void ensure_utf8_locale(void) {
+  char tmp[32];
+  const char *p, *q, *name;
+  if ((p = getenv(name = "LC_ALL")) != NULL) {
+   change:
+    q = is_utf8_locale(p);
+    if (q) return;  /* Already UTF-8. */
+    for (q = p + strlen(p); q != p && q[-1] != '.'; --q) {}
+    if (p == q) goto fallback;  /* No dot. */
+    if (q - p + 6 > (int)sizeof(tmp)) goto fallback;  /* Too long. */
+    memcpy(tmp, p, q - p);
+    memcpy(tmp + (q - p), "UTF-8", 6);
+    setenv(name, tmp, TRUE);
+  } else {
+    if ((p = getenv(name = "LC_CTYPE")) != NULL) goto change;
+    if ((p = getenv(name = "LANG")) != NULL) { name = "LC_CTYPE"; goto change; }
+    name = "LC_CTYPE";
+   fallback:
+    setenv(name, "en_US.UTF-8", TRUE);
+  }
+}
+
 /* TODO(pts): Remove these limitations. */
 #define MAXOUTPUTBUFFER 65536
 #define MAXLINES 1024
@@ -284,6 +324,7 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
     dup2(pipe_stdout[1], 2);
     close(pipe_stdout[1]);
 
+    ensure_utf8_locale();  /* The command argument n is in UTF-8, and stdout is expected in UTF-8 by pango_layout_set_text. Communicate this with qiv-command. */
     if (tab_mode != 0) {
       execlp("qiv-command", "qiv-command", n, filename, tab_mode_extra + 1,
              NULL);
