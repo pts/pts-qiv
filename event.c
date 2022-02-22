@@ -15,11 +15,16 @@
 
 #define STEP 3 //When using KP arrow, number of step for seeing all the image.
 
-static gboolean jumping;
-static gboolean extcommand; // [lc]
-static char   jcmd[512];  /* Used both for jumping and extcommand. */
-static int    jidx;
-static const char *mess_buf[2]={ jcmd, NULL};
+typedef enum QivMode {
+  NORMAL = 0,     /* Waiting for single-keystroke commands. */
+  JUMP_EDIT = 2,  /* Editing the jump target string in jcmd. */
+  EXT_EDIT = 3,   /* Editing the external qiv-command argument in jcmd. */
+  CONFIRM = 4,    /* Waiting for any keystoke ( `Push any key...') while displaying message in text window. */
+} QivMode;
+static QivMode qiv_mode;  /* NORMAL by default. */
+static char   jcmd[512];  /* Single-line text edit buffer used by both JUMP_EDIT and EXT_EDIT. Always '\0'-terminated. */
+static int    jidx;  /* Cursor position in jcmd. Currently it always points to the trailing '\0'. */
+static const char *mess_buf[2] = { jcmd, NULL};
 static const char **mess = mess_buf;
 static int    cursor_timeout;
 static gboolean displaying_textwindow = FALSE;
@@ -94,6 +99,7 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
 }
 
 static void qiv_hide_text_window(qiv_image *q) {
+  if (!displaying_textwindow) return;
   displaying_textwindow = FALSE;
 #if 1
   update_image(q, FULL_REDRAW);
@@ -161,7 +167,7 @@ static void qiv_display_text_window(qiv_image *q, const char *infotextdisplay,
                   i * (ascent + descent), layout);
   }
 
-  /* Display Push Any Key... message */
+  /* Display continue_msg in the last line. */
   pango_layout_set_text(layout, continue_msg, -1);
   pango_layout_get_pixel_size (layout, &temp, NULL);
   gdk_draw_layout (q->win, q->text_gc, 
@@ -178,26 +184,39 @@ static void qiv_display_text_window(qiv_image *q, const char *infotextdisplay,
   }
 }
 
+static void switch_to_confirm_mode(qiv_image *q, const char **lines) {
+  qiv_mode = CONFIRM;
+  qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
+  jidx = 0;
+  jcmd[jidx = 0] = '\0';
+}
+
+static void switch_to_normal_mode(qiv_image *q) {
+  qiv_mode = NORMAL;
+  jidx = 0;
+  jcmd[jidx = 0] = '\0';
+  qiv_hide_text_window(q);
+}
+
 static void run_command_str(qiv_image *q, const char *str) {
   int numlines = 0;
   const int tab_mode = 0;
   const char **lines;
   /* This may reload the image. */
   run_command(q, str, tab_mode, image_names[image_idx], &numlines, &lines);
-  if (lines && numlines)
-    qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
+  if (lines && numlines) {
+    switch_to_confirm_mode(q, lines);
+  } else {
+    switch_to_normal_mode(q);
+  }
 }
 
-static void enter_extcommand(qiv_image *q) {
+static void switch_to_ext_edit_mode(qiv_image *q) {
   const int tab_mode = 1;
   int numlines = 0;
   const char **lines;
-  if (jumping) {
-    jumping = FALSE;
-    jidx = 0;
-  }
-  qiv_hide_text_window(q);
-  jcmd[0] = '\0';
+
+  switch_to_normal_mode(q);
   /* This may reload the image. */
   run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
   if (!lines || !numlines) {
@@ -210,7 +229,7 @@ static void enter_extcommand(qiv_image *q) {
     lines[0] = jcmd;
     mess = lines;
   }
-  extcommand = TRUE;
+  qiv_mode = EXT_EDIT;
   // TODO(pts): Make typing faster on a large image.
   qiv_display_text_window(q, "(Tab-start command)", mess,
                           "Press <Return> to send, <Esc> to abort"); // [lc]
@@ -220,7 +239,7 @@ static void enter_extcommand(qiv_image *q) {
 static gboolean apply_to_jcmd(const GdkEventKey *evk) {
   if (evk->keyval == GDK_BackSpace) {
     if (jidx > 0) {
-      jidx--;
+      jidx--;  /* TODO(pts): Remove multiple bytes (if UTF-8). */
       jcmd[jidx] = '\0';
       return TRUE;
     }
@@ -308,16 +327,17 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
       break;
 
     case GDK_BUTTON_PRESS:
-      jumping = FALSE;              /* abort jump mode if a button is pressed */
-      jidx = 0;
-      qiv_cancel_cursor_timeout(q);
-      if (fullscreen && ev->button.button == 1) {
-        q->drag = 1;
-        q->drag_start_x = ev->button.x;
-        q->drag_start_y = ev->button.y;
-        q->drag_win_x = q->win_x;
-        q->drag_win_y = q->win_y;
-        qiv_enable_mouse_events(q);
+      if (qiv_mode != CONFIRM && qiv_mode != EXT_EDIT) {
+        switch_to_normal_mode(q);
+        qiv_cancel_cursor_timeout(q);
+        if (fullscreen && ev->button.button == 1) {
+          q->drag = 1;
+          q->drag_start_x = ev->button.x;
+          q->drag_start_y = ev->button.y;
+          q->drag_win_x = q->win_x;
+          q->drag_win_y = q->win_y;
+          qiv_enable_mouse_events(q);
+        }
       }
       break;
 
@@ -369,6 +389,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
     /* Use release instead of press (Fixes bug with junk being sent
      * to underlying xterm window on exit) */
     case GDK_BUTTON_RELEASE:
+      switch_to_normal_mode(q);
       exit_slideshow = TRUE;
       switch (ev->button.button) {
         case 1:        /* left button pressed */
@@ -411,35 +432,32 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
       g_print("\tkeyval: %d\n",ev->key.keyval);
    #endif
 
-      /* Ctrl-<Q> to quit works even inside jump mode and extcommand mode. */
+      /* Ctrl-<Q> to quit works in any qiv_mode. */
       if (ev->key.keyval == 'q' && ev->key.state & GDK_CONTROL_MASK) {
         qiv_exit(0);
-      } else if (displaying_textwindow && !extcommand) {  /* After `Push any key...'. */
-        qiv_hide_text_window(q);
-      } else if (jumping) {
+      } else if (qiv_mode == CONFIRM) {  /* After `Push any key...'. */
+        /* TODO(pts): Do nothing if a modifier key (e.g. <Ctrl>) is pressed. */
+        switch_to_normal_mode(q);
+      } else if (qiv_mode == JUMP_EDIT) {
         /* printf("evkey=0x%x modifiers=0x%x\n", ev->key.keyval, ev->key.state); */
         if (ev->key.keyval == GDK_Escape ||
             (ev->key.keyval == 'c' && ev->key.state & GDK_CONTROL_MASK)) {
-          jumping = FALSE;  /* Abort jump mode. */
-          jidx = 0;
-        } else if (ev->key.keyval == GDK_Tab) {  /* Abort jump mode, enter extcommand mode. */
-          enter_extcommand(q);
+          switch_to_normal_mode(q);
+        } else if (ev->key.keyval == GDK_Tab) {  /* Abort JUMP_EDIT mode, switch to EXT_EDIT mode. */
+          switch_to_ext_edit_mode(q);
         } else if (ev->key.keyval == GDK_Return || ev->key.keyval == GDK_KP_Enter) {
-          jcmd[jidx] = '\0';
           jump2image(jcmd);
-          qiv_load_image(q);
-          jumping = FALSE;
-          jidx = 0;
+          qiv_load_image(q);  /* Does update_image(q, FULL_REDRAW) unless in slideshow mode. */
+          if (!slide) displaying_textwindow = FALSE;  /* Speedup to avoid double FULL_REDRAW. */
+          switch_to_normal_mode(q);
         } else {  /* Record keystroke. */
           apply_to_jcmd(&ev->key);
         }
-      } else if (extcommand) {
+      } else if (qiv_mode == EXT_EDIT) {
         /* printf("evkey=0x%x modifiers=0x%x\n", ev->key.keyval, ev->key.state); */
         if (ev->key.keyval == GDK_Escape ||
             (ev->key.keyval == 'c' && ev->key.state & GDK_CONTROL_MASK)) {
-          extcommand = FALSE;
-          jidx = 0;
-          qiv_hide_text_window(q);
+          switch_to_normal_mode(q);
         } else if (ev->key.keyval == GDK_Return ||
                    ev->key.keyval == GDK_KP_Enter ||
                    ev->key.keyval == GDK_Tab) {
@@ -453,7 +471,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           } else {
             qiv_hide_text_window(q);
           }
-          jcmd[jidx] = '\0';
           /* This may reload the image. */
           run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
           if (!tab_mode && lines && numlines > 1 && lines[1][0] == '\007') {
@@ -475,18 +492,16 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             // TODO(pts): Make typing faster on a large image.
             qiv_display_text_window(q, "(Expanded command)", mess,
                                     "Press <Return> to send, <Esc> to abort"); // [lc]
-            extcommand = TRUE;
           } else if (lines && numlines) {
-            qiv_display_text_window(q, "(Command output)", lines, "Push any key...");
-            extcommand = FALSE;
+            switch_to_confirm_mode(q, lines);
+            jcmd[jidx = 0] = '\0';
           } else {  /* Empty output from command, consider it finished. */
-            qiv_hide_text_window(q);
-            extcommand = FALSE;
+            switch_to_normal_mode(q);
           }
         } else {  /* Record keystroke. */
           apply_to_jcmd_and_text_window(q, &ev->key);
         }
-      } else {  /* non-jumping, non-extcommand */
+      } else {  /* qiv_mode == NORMAL. */
         switch (ev->key.keyval) {
 
           /* Function keys to qiv-command. */
@@ -1007,8 +1022,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* Jump to image */
 
           case 'j':
-            jumping = TRUE;
-            jidx = 0;
+            /* True: assert(qiv_mode == NORMAL); */
+            qiv_mode = JUMP_EDIT;
+            jcmd[jidx = 0] = '\0';
             break;
 
             /* Flip horizontal */
@@ -1150,15 +1166,16 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* Run qiv-command '' <image-filename> 1 */
           case '\t':  // not sent this way
           case GDK_Tab:
-            enter_extcommand(q);
+            switch_to_ext_edit_mode(q);
             break;
 
             /* run qiv-command */
           case '^':    // special command with options
-            extcommand = TRUE;
-            jidx = 0;
+            /* True: assert(qiv_mode == COMMAND); */
+            qiv_mode = EXT_EDIT;
+            jcmd[jidx = 0] = '\0';
             mess = mess_buf;
-            apply_to_jcmd_and_text_window(q, &ev->key);
+            apply_to_jcmd_and_text_window(q, &ev->key);  /* Start by typing '^'. */
             break;
 
 	  case '`':
