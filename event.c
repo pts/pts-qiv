@@ -164,6 +164,9 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
     strncpy(infotext, infotextdisplay, sizeof(infotext) - 1);
     infotext[sizeof(infotext) - 1] = '\0';
   }
+#if DEBUG
+  fprintf(stderr, "display update ix=%d iy=%d iw=%d ih=%d\n", q->win_x, q->win_y, q->win_w, q->win_h);
+#endif
   if (!mws.is_displayed || (mws.is_clean && mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h)) {
     /* update_image_noflush not needed, we skip it to prevent flickering. */
     if (has_infotext_changed) update_image_noflush(q, STATUSBAR);

@@ -946,7 +946,7 @@ static void draw_image_or_background(qiv_image *q, gint x, gint y, gint w, gint 
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }
     if (w > 0 && h > 0) {
-      const gint ix = q->win_x, iy = q->win_y, iw = q->win_w, ih = q->win_h;
+      const gint ix = fullscreen ? q->win_x : 0, iy = fullscreen ? q->win_y : 0, iw = q->win_w, ih = q->win_h;
       const gint sx = MMAX(x, ix), sy = MMAX(y, iy), sw = MMIN(x + w, ix + iw) - sx, sh = MMIN(y + h, iy + ih) - sy;  /* Calculate intersection. */
       if (sw > 0 && sh > 0) {  /* Draw intersection (from image) and portions of background (from q->bg-gc). */
         /* We draw 5 regions: Top, Left, interSection, Right, Bottom:
