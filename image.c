@@ -936,11 +936,29 @@ static void draw_image_or_background(qiv_image *q, gint x, gint y, gint w, gint 
     if (w > 0 && h > 0) {
       const gint ix = q->win_x, iy = q->win_y, iw = q->win_w, ih = q->win_h;
       const gint sx = MMAX(x, ix), sy = MMAX(y, iy), sw = MMIN(x + w, ix + iw) - sx, sh = MMIN(y + h, iy + ih) - sy;  /* Calculate intersection. */
-      if (sw > 0 && sh > 0) {
-        gdk_draw_rectangle(q->win, q->bg_gc, 1, x, y, w, h);  /* TODO(pts): Draw this without overlap below. */
-        gdk_draw_drawable(q->win, q->bg_gc, q->p, sx - ix, sy - iy, sx, sy, sw, sh);
-      } else {
+      if (sw > 0 && sh > 0) {  /* Draw intersection (from image) and portions of background (from q->bg-gc). */
+        /* We draw 5 regions: Top, Left, interSection, Right, Bottom:
+         * TTTTT
+         * LSSSR
+         * BBBBB
+         */
+        gdk_draw_drawable(q->win, q->bg_gc, q->p, sx - ix, sy - iy, sx, sy, sw, sh);  /* S. */
+        if (sy > y) gdk_draw_rectangle(q->win, q->bg_gc, 1, x, y, w, sy - y);  /* T. */
+        if (sx > x) gdk_draw_rectangle(q->win, q->bg_gc, 1, x, sy, sx - x, sh);  /* L. */
+        if (x + w > sx + sw) gdk_draw_rectangle(q->win, q->bg_gc, 1, sx + sw, sy, x + w - sx - sw, sh);  /* R. */
+        if (y + h > sy + sh) gdk_draw_rectangle(q->win, q->bg_gc, 1, x, sy + sh, w, y + h - sy - sh);  /* B. */
+#if DEBUG
+        if (sy > y) putc('T', stderr);
+        if (sx > x) putc('L', stderr);
+        if (x + w > sx + sw) putc('R', stderr);
+        if (y + h > sy + sh) putc('B', stderr);
+        putc('.', stderr);
+#endif
+      } else {  /* Intersection is empty, draw the background only. */
         gdk_draw_rectangle(q->win, q->bg_gc, 1, x, y, w, h);
+#if DEBUG
+        putc('-', stderr);
+#endif
       }
     }
   }
