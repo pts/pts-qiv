@@ -35,6 +35,8 @@ typedef struct _qiv_multiline_window_state {
   gboolean is_clean;
 } qiv_multiline_window_state;
 static qiv_multiline_window_state mws;  /* Default: .is_displayed = FALSE. */
+static const char **last_multiline_strs;
+static const char *last_multiline_continue_msg;
 
 static void qiv_enable_mouse_events(qiv_image *q)
 {
@@ -103,6 +105,7 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
   }
 
   update_image(q, MOVED);
+  snprintf(infotext, sizeof infotext, "(-)");
 }
 
 static void qiv_hide_multiline_window(qiv_image *q) {
@@ -159,11 +162,17 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   mws2.h = text_h + 8;
   mws2.is_displayed = mws2.is_clean = TRUE;
 
-  has_infotext_changed = strncmp(infotext, infotextdisplay, sizeof(infotext) - 1) != 0;
-  if (has_infotext_changed) {
-    strncpy(infotext, infotextdisplay, sizeof(infotext) - 1);
-    infotext[sizeof(infotext) - 1] = '\0';
+  if (infotextdisplay) {
+    has_infotext_changed = strncmp(infotext, infotextdisplay, sizeof(infotext) - 1) != 0;
+    if (has_infotext_changed) {
+      strncpy(infotext, infotextdisplay, sizeof(infotext) - 1);
+      infotext[sizeof(infotext) - 1] = '\0';
+    }
+  } else {
+    has_infotext_changed = FALSE;
   }
+  last_multiline_strs = strs;
+  last_multiline_continue_msg = continue_msg;
 #if DEBUG
   fprintf(stderr, "display update ix=%d iy=%d iw=%d ih=%d\n", q->win_x, q->win_y, q->win_w, q->win_h);
 #endif
@@ -312,6 +321,9 @@ static void apply_to_jcmd_and_multiline_window(qiv_image *q, const GdkEventKey *
   }
 }
 
+#define MMIN(a, b) ((a) < (b) ? (a) : (b))
+#define MMAX(a, b) ((a) > (b) ? (a) : (b))
+
 void qiv_handle_event(GdkEvent *ev, gpointer data)
 {
   gboolean do_make_multiline_window_unclean = TRUE;
@@ -329,16 +341,63 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 //    gdk_window_get_root_origin(q->win, &q->win_x, &q->win_y);
   }
 
+#if DEBUG
+  switch (ev->type) {
+   case GDK_NOTHING:
+   case GDK_PROPERTY_NOTIFY:
+   case GDK_KEY_PRESS:
+   case GDK_KEY_RELEASE:
+   case GDK_MOTION_NOTIFY:
+   case GDK_ENTER_NOTIFY:
+   case GDK_LEAVE_NOTIFY:
+   case GDK_FOCUS_CHANGE:
+   case GDK_MAP:
+   case GDK_UNMAP:
+   case GDK_VISIBILITY_NOTIFY:
+   case GDK_WINDOW_STATE:
+    break;
+   case GDK_CONFIGURE:
+    fprintf(stderr, "ev type=GDK_CONFIGURE x=%d y=%d width=%d height=%d\n", ev->configure.x, ev->configure.y, ev->configure.width, ev->configure.height);
+    break;
+   case GDK_EXPOSE:
+    fprintf(stderr, "ev type=GDK_EXPOSE x=%d y=%d width=%d height=%d\n", ev->expose.area.x, ev->expose.area.y, ev->expose.area.width, ev->expose.area.height);
+    break;
+   default:
+    fprintf(stderr, "ev type=%d\n", ev->type);
+    break;
+  }
+#endif
+
   switch(ev->type) {
     case GDK_DELETE:
       qiv_exit(0);
       break;
 
     case GDK_EXPOSE:
+      if (fullscreen) {
+        const gint ex = ev->expose.area.x, ey = ev->expose.area.y, ew = ev->expose.area.width, eh = ev->expose.area.height;
+#if DEBUG
+        const gboolean is_full = ev->expose.area.x == 0 && ev->expose.area.y == 0 && ev->expose.area.width == 1440 && ev->expose.area.height == 900;
+        gdk_draw_rectangle(q->win, is_full ? q->bg_gc : q->status_gc,
+                           is_full, ev->expose.area.x, ev->expose.area.y, ev->expose.area.width - !is_full, ev->expose.area.height - !is_full);
+#endif
+        /* TODO(pts): Draw the statusbar only to the exposed area. */
+        update_image_or_background_noflush(q, ex, ey, ew, eh, has_intersection_with_statusbar(q, ex, ey, ew, eh));
+        if (mws.is_displayed) {
+          const gint sx = MMAX(mws.x, ex), sy = MMAX(mws.y, ey), sw = MMIN(mws.x + mws.w, ex + ew) - sx, sh = MMIN(mws.y + mws.h, ey + eh) - sy;  /* Calculate intersection. */
+          if (sx > 0 && sy > 0) {
+            mws.x = sx; mws.y = sy; mws.w = sw; mws.h = sh;
+            mws.is_clean = TRUE;
+            /* TODO(pts): Fix ownership issues of last_multiline_strs and last_multiline_continue_msg. */
+            qiv_display_multiline_window(q, NULL, last_multiline_strs, last_multiline_continue_msg);
+          }
+        }
+      }
       if (!q->exposed) {
         q->exposed = 1;
         qiv_set_cursor_timeout(q);
       }
+      gdk_flush();
       break;
 
     case GDK_LEAVE_NOTIFY:
@@ -363,6 +422,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
         // printf(">>> statusbar_w %d %d %d %d\n",
         //        MAX(2,q->win_w-text_w-10), MAX(2,q->win_h-text_h-10), text_w+5, text_h+5);
 
+        /* TODO(pts): Unify code with update_image(q, STATUSBAR); Currently it doesn't display a statusbar. */
         gdk_draw_rectangle(q->win, q->bg_gc, 0,
                            MAX(2,q->win_w-q->text_w-10), MAX(2,q->win_h-q->text_h-10),
                            q->text_w+5, q->text_h+5);

@@ -1034,7 +1034,6 @@ void update_image_noflush(qiv_image *q, int mode) {
 #endif
       update_win_title(q, image_names[image_idx], load_elapsed + elapsed);
     }
-    snprintf(infotext, sizeof infotext, "(-)");
   }
 
   gdk_window_set_title(q->win, q->win_title);
@@ -1183,6 +1182,16 @@ void update_image_or_background_noflush(qiv_image *q, gint x, gint y, gint w, gi
   } else {
     draw_image_or_background(q, x, y, w, h);
     if (force_update_statusbar) update_image_noflush(q, STATUSBAR);
+  }
+}
+
+gboolean has_intersection_with_statusbar(qiv_image *q, gint x, gint y, gint w, gint h) {
+  if (fullscreen && statusbar_fullscreen) {
+    const gint ix = statusbar_x-q->text_w-10, iy = statusbar_y-q->text_h-10, iw = q->text_w+6, ih = q->text_oh+6;
+    const gint sx = MMAX(x, ix), sy = MMAX(y, iy), sw = MMIN(x + w, ix + iw) - sx, sh = MMIN(y + h, iy + ih) - sy;  /* Calculate intersection. */
+    return sw > 0 && sh > 0;
+  } else {
+    return FALSE;
   }
 }
 
