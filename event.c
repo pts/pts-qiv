@@ -159,6 +159,14 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   snprintf(infotext, sizeof infotext, "%s", infotextdisplay);
   if (!mws.is_displayed || (mws.is_clean && mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h)) {
     /* update_image not needed, we skip it to prevent flickering. */
+  } else if (mws.is_clean && mws.x <= mws2.x && mws.y == mws2.y && mws.x + mws.w >= mws2.x + mws2.w && mws.y + mws.h == mws2.y + mws2.h) {
+    /* Condition above: multiline_window became narrower, typically because of <Backspace>. */
+    if (mws2.x >= q->win_x || mws2.x + mws2.w <= q->win_x + q->win_w) {
+      update_image(q, REDRAW);  /* New multiline_window doesn't cover the entire image => REDRAW the image. Unfortunately it flickers, but there is no other correct way. */
+    }
+    /* TODO(pts): Down't draw these background bars over the statusbar drawn by update_image. */
+    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, mws2.x - mws.x, mws.h);
+    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h);
   } else {
     /* If the new multiline_window fully covers the old one, then just do faster REDRAW (without flickering). */
     const int redraw_mode = (mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
