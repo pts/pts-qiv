@@ -104,15 +104,17 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
 }
 
 static void qiv_hide_multiline_window(qiv_image *q) {
-  if (!mws.is_displayed) return;
-  mws.is_displayed = FALSE;
-#if 1
-  update_image(q, FULL_REDRAW);
-#else  /* TODO(pts): Avoid flickering, just draw the previous rectangles with background. */
-  update_image(q, REDRAW);
-  gdk_draw_rectangle(q->win, q->status_gc, 1,
-      q->win_x + q->win_w + 1, q->win_y, 10, q->win_h);
-#endif
+  if (!mws.is_displayed) {
+  } else if (mws.y >= q->win_y && mws.y + mws.h <= q->win_y + q->win_h) {
+    /* Image covers multiline_window vertically, a REDRAW + some vertical background bars are enough. */
+    if (q->win_x > mws.x) gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, q->win_x - mws.x, mws.h);
+    if (mws.x + mws.w > q->win_x + q->win_w) gdk_draw_rectangle(q->win, q->bg_gc, 1, q->win_x + q->win_w, mws.y, mws.x + mws.w - q->win_x - q->win_w, mws.h);
+    update_image(q, REDRAW);
+    mws.is_displayed = FALSE;
+  } else {
+    update_image(q, FULL_REDRAW);
+    mws.is_displayed = FALSE;
+  }
 }
 
 static void qiv_display_multiline_window(qiv_image *q, const char *infotextdisplay,
@@ -161,12 +163,11 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
     /* update_image not needed, we skip it to prevent flickering. */
   } else if (mws.is_clean && mws.x <= mws2.x && mws.y == mws2.y && mws.x + mws.w >= mws2.x + mws2.w && mws.y + mws.h == mws2.y + mws2.h) {
     /* Condition above: multiline_window became narrower, typically because of <Backspace>. */
+    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, mws2.x - mws.x, mws.h);
+    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h);
     if (mws2.x >= q->win_x || mws2.x + mws2.w <= q->win_x + q->win_w) {
       update_image(q, REDRAW);  /* New multiline_window doesn't cover the entire image => REDRAW the image. Unfortunately it flickers, but there is no other correct way. */
     }
-    /* TODO(pts): Down't draw these background bars over the statusbar drawn by update_image. */
-    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, mws2.x - mws.x, mws.h);
-    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h);
   } else {
     /* If the new multiline_window fully covers the old one, then just do faster REDRAW (without flickering). */
     const int redraw_mode = (mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
