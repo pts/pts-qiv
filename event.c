@@ -262,7 +262,6 @@ static void switch_to_ext_edit_mode(qiv_image *q) {
     mess = lines;
   }
   qiv_mode = EXT_EDIT;
-  // TODO(pts): Make typing faster on a large image.
   qiv_display_multiline_window(q, "(Tab-start command)", mess,
                                "Press <Return> to send, <Esc> to abort"); // [lc]
 }
