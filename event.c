@@ -27,7 +27,11 @@ static int    jidx;  /* Cursor position in jcmd. Currently it always points to t
 static const char *mess_buf[2] = { jcmd, NULL};
 static const char **mess = mess_buf;
 static int    cursor_timeout;
-static gboolean is_multiline_window_displayed = FALSE;
+typedef struct _qiv_multiline_window_state {
+  gint x, y, w, h;
+  gboolean is_displayed;
+} qiv_multiline_window_state;
+static qiv_multiline_window_state mws;  /* Default: .is_displayed = FALSE. */
 
 static void qiv_enable_mouse_events(qiv_image *q)
 {
@@ -99,8 +103,8 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
 }
 
 static void qiv_hide_multiline_window(qiv_image *q) {
-  if (!is_multiline_window_displayed) return;
-  is_multiline_window_displayed = FALSE;
+  if (!mws.is_displayed) return;
+  mws.is_displayed = FALSE;
 #if 1
   update_image(q, FULL_REDRAW);
 #else  /* TODO(pts): Avoid flickering, just draw the previous rectangles with background. */
@@ -114,12 +118,9 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
                                          const char *strs[], const char *continue_msg) {
   int temp, text_w = 0, text_h, i, maxlines;
   int width, height, text_left;
-
-  int ascent;
-  int descent;
-
-  if (is_multiline_window_displayed) qiv_hide_multiline_window(q);
-  is_multiline_window_displayed = TRUE;
+  qiv_multiline_window_state mws2;
+  int redraw_mode;
+  int ascent, descent;
 
   ascent  = PANGO_PIXELS(pango_font_metrics_get_ascent(metrics));
   descent = PANGO_PIXELS(pango_font_metrics_get_descent(metrics));
@@ -147,17 +148,21 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   }
 
   text_h = (i + 2) * ( ascent + descent );
-
-  snprintf(infotext, sizeof infotext, "%s", infotextdisplay);
-  update_image(q, REDRAW);
-
   text_left = width/2 - text_w/2 - 4;
   if (text_left < 2)  text_left = 2;            /* if window/screen is smaller than text */
+  mws2.x = text_left;
+  mws2.y = height/2 - text_h/2 - 4;
+  mws2.w = text_w + 7;
+  mws2.h = text_h + 7;
+  mws2.is_displayed = TRUE;
 
-  gdk_draw_rectangle(q->win, q->bg_gc, 0,
-                     text_left,
-                     height/2 - text_h/2 - 4,
-                     text_w + 7, text_h + 7);
+  snprintf(infotext, sizeof infotext, "%s", infotextdisplay);
+  /* If the new multiline_window fully covers the old one, then just do faster REDRAW (without flickering). */
+  redraw_mode = (!mws.is_displayed || (mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h)) ?
+      REDRAW : FULL_REDRAW;
+  /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
+  update_image(q, redraw_mode);
+  gdk_draw_rectangle(q->win, q->bg_gc, 0, mws2.x, mws2.y, mws2.w, mws2.h);
   gdk_draw_rectangle(q->win, q->status_gc, 1,
                      text_left + 1,
                      height/2 - text_h/2 - 3,
@@ -175,6 +180,7 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
                    width/2 - temp/2,
                    height/2 - text_h/2 - descent + (i+1) * (ascent + descent),
                    layout);
+  mws = mws2;  /* Update global stage. */
 
   /* print also on console */
   if (0) {
@@ -450,7 +456,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           jump2image(jcmd);
           q->is_updated = FALSE;
           qiv_load_image(q);  /* Does update_image(q, FULL_REDRAW) unless in slideshow mode. */
-          if (q->is_updated) is_multiline_window_displayed = FALSE;  /* Speedup to avoid another FULL_REDRAW. */
+          if (q->is_updated) mws.is_displayed = FALSE;  /* Speedup to avoid another FULL_REDRAW. */
           switch_to_normal_mode(q);
         } else {  /* Record keystroke. */
           apply_to_jcmd(&ev->key);
