@@ -179,6 +179,7 @@ extern void qiv_load_image();
 #define MOVED  1
 #define ZOOMED 2
 #define FULL_REDRAW 3
+#define STATUSBAR 4
 
 extern void qiv_load_image(qiv_image *);
 extern void set_desktop_image(qiv_image *);

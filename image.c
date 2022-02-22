@@ -925,6 +925,27 @@ static void update_image_on_error(qiv_image *q) {
   /* The caller should continue with the call to: qiv_load_image(q); */
 }
 
+#define MMIN(a, b) ((a) < (b) ? (a) : (b))
+#define MMAX(a, b) ((a) > (b) ? (a) : (b))
+
+/* Redraws the rectangle (x, y, x + w, y + h) in the main window, with portions of the image, or with the background (q->bg_gc), or with a combination of the two. */
+static void draw_image_or_background(qiv_image *q, gint x, gint y, gint w, gint h) {
+  if (w > 0 && h > 0 && !q->error) {
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (w > 0 && h > 0) {
+      const gint ix = q->win_x, iy = q->win_y, iw = q->win_w, ih = q->win_h;
+      const gint sx = MMAX(x, ix), sy = MMAX(y, iy), sw = MMIN(x + w, ix + iw) - sx, sh = MMIN(y + h, iy + ih) - sy;  /* Calculate intersection. */
+      if (sw > 0 && sh > 0) {
+        gdk_draw_rectangle(q->win, q->bg_gc, 1, x, y, w, h);  /* TODO(pts): Draw this without overlap below. */
+        gdk_draw_drawable(q->win, q->bg_gc, q->p, sx - ix, sy - iy, sx, sy, sw, sh);
+      } else {
+        gdk_draw_rectangle(q->win, q->bg_gc, 1, x, y, w, h);
+      }
+    }
+  }
+}
+
 /* Something changed the image. Redraw it. Don't (always) flush. */
 void update_image_noflush(qiv_image *q, int mode) {
   GdkPixmap * m = NULL;
@@ -943,7 +964,7 @@ void update_image_noflush(qiv_image *q, int mode) {
     if (mode == REDRAW || mode == FULL_REDRAW)
       setup_imlib_color_modifier(q->mod);
 
-    if (mode == MOVED) {
+    if (mode == MOVED || mode == STATUSBAR) {
       if (transparency && used_masks_before) {
         /* there should be a faster way to update the mask, but how? */
 	if (q->p)
@@ -990,7 +1011,8 @@ void update_image_noflush(qiv_image *q, int mode) {
 
   q->text_w = q->text_h = 0;
 
-  if (!fullscreen) {
+  if (!fullscreen && mode == STATUSBAR) {
+  } else if (!fullscreen) {
     GdkGeometry geometry = {
       .min_width = q->win_w,
       .min_height = q->win_h,
@@ -1038,6 +1060,7 @@ void update_image_noflush(qiv_image *q, int mode) {
 #endif
     if (mode == FULL_REDRAW) {
       gdk_window_clear(q->win);
+    } else if (mode == STATUSBAR) {
     } else {
       if (q->win_x > q->win_ox)
         gdk_draw_rectangle(q->win, q->bg_gc, 1,
@@ -1074,13 +1097,26 @@ void update_image_noflush(qiv_image *q, int mode) {
       }
     }
 
-    if (!q->error)
+    if (q->error) {
+    } else if (mode == STATUSBAR) {
+      if (q->statusbar_was_on && statusbar_fullscreen && q->text_ow > q->text_w && q->text_oh == q->text_h) {
+        /* Draw image or background the left side of the old statusbar. */
+        draw_image_or_background(q, statusbar_x-q->text_ow-10, statusbar_y-q->text_oh-10, q->text_ow - q->text_w, q->text_oh+6);
+      } else if (q->statusbar_was_on && (!statusbar_fullscreen || q->text_ow > q->text_w || q->text_oh > q->text_h)) {
+        /* Draw image or background to the entire old statusbar. */
+        draw_image_or_background(q, statusbar_x-q->text_ow-10, statusbar_y-q->text_oh-10, q->text_ow+6, q->text_oh+6);
+      }
+    } else {
       gdk_draw_drawable(q->win, q->bg_gc, q->p, 0, 0,
                         q->win_x, q->win_y, q->win_w, q->win_h);
-
+    }
 
     if (statusbar_fullscreen) {
       {  /* Draw the statusbar to the bottom right corner of the fullscreen window. */
+         /* gdk_draw_rectangle always uses the foreground color.
+          * For fill=0, the bounding box of the drawn rectangle is (w+1) x (h+1) pixels.
+          * For fill=1, the bounding box of the drawn rectangle is w     x h     pixels.
+          */
 
         gdk_draw_rectangle(q->win, q->bg_gc, 0,
           statusbar_x-q->text_w-10, statusbar_y-q->text_h-10, q->text_w+5, q->text_h+5);

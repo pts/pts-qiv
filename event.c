@@ -165,7 +165,7 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   }
   if (!mws.is_displayed || (mws.is_clean && mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h)) {
     /* update_image_noflush not needed, we skip it to prevent flickering. */
-    if (has_infotext_changed) update_image_noflush(q, MOVED);  /* Update statusbar, */
+    if (has_infotext_changed) update_image_noflush(q, STATUSBAR);
   } else if (mws.is_clean && mws.x <= mws2.x && mws.y == mws2.y && mws.x + mws.w >= mws2.x + mws2.w && mws.y + mws.h == mws2.y + mws2.h) {
     /* Condition above: multiline_window became narrower, typically because of <Backspace>. */
     gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, mws2.x - mws.x, mws.h);
@@ -666,7 +666,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               snprintf(infotext, sizeof infotext, statusbar_window ?
                        "(Statusbar: on)" : "(Statusbar: off)");
             }
-            update_image(q, REDRAW);
+            update_image(q, STATUSBAR);
             break;
 
             /* Slide show on/off */
