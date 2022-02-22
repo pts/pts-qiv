@@ -184,9 +184,10 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   }
 }
 
-static void switch_to_confirm_mode(qiv_image *q, const char **lines) {
+static void switch_to_confirm_mode(qiv_image *q, const char **lines, gboolean is_help) {
+  const char *infotextdisplay = is_help ? "(Showing Help)" : "(Command output)";
   qiv_mode = CONFIRM;
-  qiv_display_multiline_window(q, "(Command output)", lines, "Push any key...");
+  qiv_display_multiline_window(q, infotextdisplay, lines, "Push any key...");
   jidx = 0;
   jcmd[jidx = 0] = '\0';
 }
@@ -205,7 +206,7 @@ static void run_command_str(qiv_image *q, const char *str) {
   /* This may reload the image. */
   run_command(q, str, tab_mode, image_names[image_idx], &numlines, &lines);
   if (lines && numlines) {
-    switch_to_confirm_mode(q, lines);
+    switch_to_confirm_mode(q, lines, FALSE);
   } else {
     switch_to_normal_mode(q);
   }
@@ -492,7 +493,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             qiv_display_multiline_window(q, "(Expanded command)", mess,
                                          "Press <Return> to send, <Esc> to abort"); // [lc]
           } else if (lines && numlines) {
-            switch_to_confirm_mode(q, lines);
+            switch_to_confirm_mode(q, lines, FALSE);
             jcmd[jidx = 0] = '\0';
           } else {  /* Empty output from command, consider it finished. */
             switch_to_normal_mode(q);
@@ -531,7 +532,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             if (do_f_commands) goto do_f_command;
             /* fallthrough */
           case '?':
-            qiv_display_multiline_window(q, "(Showing Help)", helpstrs, "Press any key...");
+            switch_to_confirm_mode(q, helpstrs, TRUE);
             break;
 
             /* Exit */
