@@ -11,6 +11,8 @@
 #include <string.h>
 #include <gdk/gdkx.h>
 #include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeys.h>  /* gdk_keyval_to_unicode(...) */
+#include <glib/gunicode.h>  /* g_unichar_to_utf8(...) */
 #include "qiv.h"
 
 #define STEP 3 //When using KP arrow, number of step for seeing all the image.
@@ -270,16 +272,29 @@ static void switch_to_ext_edit_mode(qiv_image *q) {
 static gboolean apply_to_jcmd(const GdkEventKey *evk) {
   if (evk->keyval == GDK_BackSpace) {
     if (jidx > 0) {
-      jidx--;  /* TODO(pts): Remove multiple bytes (if UTF-8). */
+      /* Skip trailing UTF-8 continuation bytes 0x80 ... 0xbf, and then skip 1 more byte. */
+      while (jidx > 0 && (unsigned char)(jcmd[--jidx] - 0x80) < (unsigned char)(0xc0 - 0x80)) {}
       jcmd[jidx] = '\0';
       return TRUE;
     }
   } else {
-    if (evk->string && *evk->string > 31 &&
-        jidx + 0U < sizeof(jcmd) - 1) {
-      /* TODO(pts): Add multiple characters (UTF-8). */
+    char bytes[7], *bp;
+    /* evk->keyval works for ASCII, accented Latin letters, Greek, Cryrillic
+     * etc. evk->string works only for ASCII, is empty for other keyvals.
+     */
+    const guint32 uc = gdk_keyval_to_unicode(evk->keyval);
+    if (uc >= 32) {
+      /* pango_layout_set_text (which displays jcmd) called from
+       * qiv_display_multiline_window expects UTF-8, no matter the locale.
+       * It is called twice there, so it will display the UTF-8 warning
+       * twice on non-UTF-8.
+       */
+      const unsigned c = g_unichar_to_utf8(uc, bytes);
       /* TODO(pts): Add dynamic allocation for jcmd. */
-      jcmd[jidx++] = *(evk->string);
+      if (c > 0 && jidx + c < sizeof(jcmd) - 1) {
+        bytes[c] = '\0';
+        for (bp = bytes; *bp; jcmd[jidx++] = *bp++) {}
+      }
       jcmd[jidx] = '\0';
       return TRUE;
     }
