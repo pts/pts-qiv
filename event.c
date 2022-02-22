@@ -154,8 +154,8 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   if (text_left < 2)  text_left = 2;            /* if window/screen is smaller than text */
   mws2.x = text_left;
   mws2.y = height/2 - text_h/2 - 4;
-  mws2.w = text_w + 7;
-  mws2.h = text_h + 7;
+  mws2.w = text_w + 8;
+  mws2.h = text_h + 8;
   mws2.is_displayed = mws2.is_clean = TRUE;
 
   has_infotext_changed = strncmp(infotext, infotextdisplay, sizeof(infotext) - 1) != 0;
@@ -184,7 +184,7 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
     /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
     update_image_noflush(q, redraw_mode);
   }
-  gdk_draw_rectangle(q->win, q->bg_gc, 0, mws2.x, mws2.y, mws2.w, mws2.h);
+  gdk_draw_rectangle(q->win, q->bg_gc, 0, mws2.x, mws2.y, mws2.w - 1, mws2.h - 1);
   gdk_draw_rectangle(q->win, q->status_gc, 1,
                      text_left + 1,
                      height/2 - text_h/2 - 3,
