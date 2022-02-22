@@ -201,6 +201,7 @@ extern void hide_cursor(qiv_image *q);
 extern void show_cursor(qiv_image *q);
 extern void setup_magnify(qiv_image *, qiv_mgl *); // [lc]
 extern void update_magnify(qiv_image *, qiv_mgl *,int, gint, gint); // [lc]
+extern void destroy_win(qiv_image *q);
 
 /* event.c */
 

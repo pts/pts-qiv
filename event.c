@@ -582,12 +582,8 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'f':
             exit_slideshow = FALSE;
-            show_cursor(q);
-            gdk_window_withdraw(q->win);
-            gdk_window_destroy(q->win);
-            q->win = NULL;
+            destroy_win(q);
             fullscreen ^= 1;
-            first=1;
             qiv_load_image(q);
             break;
 

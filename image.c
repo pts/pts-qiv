@@ -581,7 +581,6 @@ static void setup_imlib_color_modifier(qiv_color_modifier q)
 static void setup_win(qiv_image *q)
 {
   GdkWindowAttr attr;
-  GdkPixmap *cursor_pixmap;
 
   if (!fullscreen) {
     attr.window_type=GDK_WINDOW_TOPLEVEL;
@@ -647,11 +646,14 @@ static void setup_win(qiv_image *q)
   gdk_gc_set_foreground(q->bg_gc, &image_bg);
   gdk_gc_set_foreground(q->status_gc, &text_bg);
 
-  cursor_pixmap = gdk_bitmap_create_from_data(q->win, blank_cursor, 1, 1);
-  invisible_cursor = gdk_cursor_new_from_pixmap(cursor_pixmap, cursor_pixmap,
-                                                &text_bg, &text_bg, 0, 0);
-  cursor = visible_cursor = gdk_cursor_new(CURSOR);
-  gdk_window_set_cursor(q->win, cursor);
+  {
+    GdkPixmap *cursor_pixmap = gdk_bitmap_create_from_data(q->win, blank_cursor, 1, 1);
+    invisible_cursor = gdk_cursor_new_from_pixmap(cursor_pixmap, cursor_pixmap,
+                                                  &text_bg, &text_bg, 0, 0);
+    gdk_bitmap_unref(cursor_pixmap);  /* invisible_cursor holds a reference. */
+  }
+  if (!visible_cursor) visible_cursor = gdk_cursor_new(CURSOR);
+  show_cursor(q);
 
   setup_imlib_for_drawable(GDK_DRAWABLE(q->win));
 }
@@ -1196,10 +1198,27 @@ void destroy_image(qiv_image *q)
   if (q->p) {
     imlib_free_pixmap_and_mask(GDK_PIXMAP_XID(q->p));
     g_object_unref(q->p);
+    q->p = NULL;
   }
-  if (q->bg_gc) g_object_unref(q->bg_gc);
-  if (q->text_gc) g_object_unref(q->text_gc);
-  if (q->status_gc) g_object_unref(q->status_gc);
+  if (q->bg_gc) { g_object_unref(q->bg_gc); q->bg_gc = NULL; }
+  if (q->text_gc) { g_object_unref(q->text_gc); q->text_gc = NULL; }
+  if (q->status_gc) { g_object_unref(q->status_gc); q->status_gc = NULL; }
+}
+
+/* The opposite of setup_win, without memory leaks. */
+void destroy_win(qiv_image *q) {
+  destroy_image(q);
+  show_cursor(q);  /* Use visible_cursor instead of invisible_cursor, the latter depends on cursor_pixmap, which depends on q->win. */
+  if (invisible_cursor) {
+    /* g_object_add_weak_pointer (G_OBJECT (invisible_cursor), (gpointer *) &invisible_cursor); */  /* Immediate segmentation fault. */
+    gdk_cursor_unref(invisible_cursor);
+    /*gdk_cursor_unref(invisible_cursor);*/  /* If doing it again: Gdk-CRITICAL **: IA__gdk_cursor_unref: assertion 'cursor->ref_count > 0' failed */
+    invisible_cursor = NULL;
+  }
+  gdk_window_withdraw(q->win);
+  gdk_window_destroy(q->win);
+  q->win = NULL;
+  first = 1;  /* Indicate that setup_win(...) has to be called again. */
 }
 
 void setup_magnify(qiv_image *q, qiv_mgl *m)
