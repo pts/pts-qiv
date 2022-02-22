@@ -109,12 +109,11 @@ static void qiv_hide_multiline_window(qiv_image *q) {
     /* Image covers multiline_window vertically, a REDRAW + some vertical background bars are enough. */
     if (q->win_x > mws.x) gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, q->win_x - mws.x, mws.h);
     if (mws.x + mws.w > q->win_x + q->win_w) gdk_draw_rectangle(q->win, q->bg_gc, 1, q->win_x + q->win_w, mws.y, mws.x + mws.w - q->win_x - q->win_w, mws.h);
-    update_image(q, REDRAW);
-    mws.is_displayed = FALSE;
+    update_image(q, mws.is_clean ? MOVED : REDRAW);
   } else {
     update_image(q, FULL_REDRAW);
-    mws.is_displayed = FALSE;
   }
+  mws.is_displayed = mws.is_clean = FALSE;
 }
 
 static void qiv_display_multiline_window(qiv_image *q, const char *infotextdisplay,
@@ -166,12 +165,16 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
     gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, mws2.x - mws.x, mws.h);
     gdk_draw_rectangle(q->win, q->bg_gc, 1, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h);
     if (mws2.x >= q->win_x || mws2.x + mws2.w <= q->win_x + q->win_w) {
-      update_image_noflush(q, REDRAW);  /* New multiline_window doesn't cover the entire image => REDRAW the image. Unfortunately it flickers, but there is no other correct way. */
+      update_image_noflush(q, mws.is_clean ? MOVED : REDRAW);  /* New multiline_window doesn't cover the entire image => REDRAW the image. Unfortunately it flickers, but there is no other correct way. */
     }
   } else {
-    /* If the new multiline_window fully covers the old one, then just do faster REDRAW (without flickering). */
-    const int redraw_mode = (mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
-        REDRAW : FULL_REDRAW;
+    /* Do the slowest FULL_REDRAW only if the new multiline_window doesn't
+     * fully cover the old one. Otherwise do the slow REDRAW if anything
+     * other than EXT_EDIT typing has happened (!mws.is_clean) since the
+     * last draw, otherwise do the fast MOVED.
+     */
+    const int redraw_mode = !(mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
+        FULL_REDRAW : mws.is_clean ? MOVED : REDRAW;
     /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
     update_image_noflush(q, redraw_mode);
   }
@@ -515,7 +518,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               lines[0] = jcmd;
               mess = lines;
             }
-            // TODO(pts): Make typing faster on a large image.
             qiv_display_multiline_window(q, "(Expanded command)", mess,
                                          "Press <Return> to send, <Esc> to abort"); // [lc]
           } else if (lines && numlines) {
