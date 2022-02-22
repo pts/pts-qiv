@@ -582,6 +582,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'f':
             exit_slideshow = FALSE;
+            /* TODO(pts): `Gdk-WARNING **: XID collision, trouble ahead' when switching from non-fullscreen to fullscreen window */
             gdk_window_withdraw(q->win);
             show_cursor(q);
             fullscreen ^= 1;

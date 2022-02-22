@@ -615,12 +615,8 @@ static void setup_win(qiv_image *q)
         GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
       gdk_window_resize(q->win, q->win_w, q->win_h);
     }
-
-    gdk_window_show(q->win);
-
   } else { /* fullscreen */
-
-    attr.window_type=GDK_WINDOW_TEMP;
+    attr.window_type = disable_grab ? GDK_WINDOW_TOPLEVEL : GDK_WINDOW_TEMP;
     attr.wclass=GDK_INPUT_OUTPUT;
     attr.event_mask=GDK_ALL_EVENTS_MASK;
     attr.x = attr.y = 0;
@@ -628,8 +624,22 @@ static void setup_win(qiv_image *q)
     attr.height=screen_y;
     q->win = gdk_window_new(NULL, &attr, GDK_WA_X|GDK_WA_Y);
     gdk_window_set_cursor(q->win, cursor);
-    gdk_window_show(q->win);
+    if (disable_grab) {
+      const GdkGeometry geometry = {
+        .min_width = screen_x,
+        .min_height = screen_y,
+        .max_width = screen_x,
+        .max_height = screen_y,
+        .win_gravity = GDK_GRAVITY_STATIC
+      };
+      gdk_window_set_decorations(q->win, 0);  /* GDK_DECOR_... */
+      gdk_window_set_functions(q->win, GDK_FUNC_MINIMIZE);  /* GDK_FUNC_... */
+      gdk_window_set_geometry_hints(q->win, &geometry,
+          GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE | GDK_HINT_WIN_GRAVITY);
+      gdk_window_move_resize(q->win, 0, 0, screen_x, screen_y);
+    }
   }
+  gdk_window_show(q->win);
 
   q->bg_gc = gdk_gc_new(q->win);
   q->text_gc = gdk_gc_new(q->win); /* black is default */
