@@ -1161,6 +1161,19 @@ void update_image(qiv_image *q, int mode) {
   gdk_flush();
 }
 
+/* Updates the specified rectangle in the main window (q->win) from the
+ * image and/or the background. if force_update_statusbar is false, then it
+ * may or may not update the statusbar.
+ */
+void update_image_or_background_noflush(qiv_image *q, gint x, gint y, gint w, gint h, gboolean force_update_statusbar) {
+  if (transparency) {
+    update_image_noflush(q, REDRAW);  /* Also updates the statusbar as a side effect. */
+  } else {
+    draw_image_or_background(q, x, y, w, h);
+    if (force_update_statusbar) update_image_noflush(q, STATUSBAR);
+  }
+}
+
 void reset_mod(qiv_image *q)
 {
   q->mod.brightness = default_brightness;

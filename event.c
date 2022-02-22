@@ -104,14 +104,13 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
 }
 
 static void qiv_hide_multiline_window(qiv_image *q) {
-  if (!mws.is_displayed) {
-  } else if (mws.y >= q->win_y && mws.y + mws.h <= q->win_y + q->win_h) {
-    /* Image covers multiline_window vertically, a REDRAW + some vertical background bars are enough. */
-    if (q->win_x > mws.x) gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, q->win_x - mws.x, mws.h);
-    if (mws.x + mws.w > q->win_x + q->win_w) gdk_draw_rectangle(q->win, q->bg_gc, 1, q->win_x + q->win_w, mws.y, mws.x + mws.w - q->win_x - q->win_w, mws.h);
-    update_image(q, mws.is_clean ? MOVED : REDRAW);
-  } else {
-    update_image(q, FULL_REDRAW);
+  if (mws.is_displayed) {
+    update_image_or_background_noflush(q, mws.x, mws.y, mws.w, mws.h, TRUE);
+    if (mws.is_clean) {
+      gdk_flush();
+    } else {  /* Shouldn't happen. */
+      update_image(q, REDRAW);
+    }
   }
   mws.is_displayed = mws.is_clean = FALSE;
 }
@@ -168,11 +167,8 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
     if (has_infotext_changed) update_image_noflush(q, STATUSBAR);
   } else if (mws.is_clean && mws.x <= mws2.x && mws.y == mws2.y && mws.x + mws.w >= mws2.x + mws2.w && mws.y + mws.h == mws2.y + mws2.h) {
     /* Condition above: multiline_window became narrower, typically because of <Backspace>. */
-    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws.x, mws.y, mws2.x - mws.x, mws.h);
-    gdk_draw_rectangle(q->win, q->bg_gc, 1, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h);
-    if (mws2.x >= q->win_x || mws2.x + mws2.w <= q->win_x + q->win_w) {
-      update_image_noflush(q, mws.is_clean ? MOVED : REDRAW);  /* New multiline_window doesn't cover the entire image => REDRAW the image. Unfortunately it flickers, but there is no other correct way. */
-    }
+    update_image_or_background_noflush(q, mws.x, mws.y, mws2.x - mws.x, mws.h, FALSE);
+    update_image_or_background_noflush(q, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h, has_infotext_changed);
   } else {
     /* Do the slowest FULL_REDRAW only if the new multiline_window doesn't
      * fully cover the old one. Otherwise do the slow REDRAW if anything
@@ -181,8 +177,12 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
      */
     const int redraw_mode = !(mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
         FULL_REDRAW : mws.is_clean ? MOVED : REDRAW;
-    /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
-    update_image_noflush(q, redraw_mode);
+    if (redraw_mode == MOVED) {
+      update_image_or_background_noflush(q, mws.x, mws.y, mws.w, mws.h, has_infotext_changed);
+    } else {
+      /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
+      update_image_noflush(q, redraw_mode);
+    }
   }
   gdk_draw_rectangle(q->win, q->bg_gc, 0, mws2.x, mws2.y, mws2.w - 1, mws2.h - 1);
   gdk_draw_rectangle(q->win, q->status_gc, 1,
