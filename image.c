@@ -988,8 +988,7 @@ void update_image_noflush(qiv_image *q, int mode) {
 
   gdk_window_set_title(q->win, q->win_title);
 
-  pango_layout_set_text(layout, q->win_title, -1);
-  pango_layout_get_pixel_size (layout, &(q->text_w), &(q->text_h));
+  q->text_w = q->text_h = 0;
 
   if (!fullscreen) {
     GdkGeometry geometry = {
@@ -1024,6 +1023,12 @@ void update_image_noflush(qiv_image *q, int mode) {
   } // if (!fullscreen)
   else
   {
+    if (statusbar_fullscreen) {
+      /* Will display q->win_title in the statusbar. */
+      pango_layout_set_text(layout, q->win_title, -1);
+      /* Call early to initialize q->text_w and q->text_h. */
+      pango_layout_get_pixel_size(layout, &(q->text_w), &(q->text_h));
+    }
 #ifdef GTD_XINERAMA
 # define statusbar_x (statusbar_screen->x_org + statusbar_screen->width)
 # define statusbar_y (statusbar_screen->y_org + statusbar_screen->height)
