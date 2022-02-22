@@ -30,6 +30,7 @@ static int    cursor_timeout;
 typedef struct _qiv_multiline_window_state {
   gint x, y, w, h;
   gboolean is_displayed;
+  gboolean is_clean;
 } qiv_multiline_window_state;
 static qiv_multiline_window_state mws;  /* Default: .is_displayed = FALSE. */
 
@@ -119,7 +120,6 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   int temp, text_w = 0, text_h, i, maxlines;
   int width, height, text_left;
   qiv_multiline_window_state mws2;
-  int redraw_mode;
   int ascent, descent;
 
   ascent  = PANGO_PIXELS(pango_font_metrics_get_ascent(metrics));
@@ -154,14 +154,18 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   mws2.y = height/2 - text_h/2 - 4;
   mws2.w = text_w + 7;
   mws2.h = text_h + 7;
-  mws2.is_displayed = TRUE;
+  mws2.is_displayed = mws2.is_clean = TRUE;
 
   snprintf(infotext, sizeof infotext, "%s", infotextdisplay);
-  /* If the new multiline_window fully covers the old one, then just do faster REDRAW (without flickering). */
-  redraw_mode = (!mws.is_displayed || (mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h)) ?
-      REDRAW : FULL_REDRAW;
-  /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
-  update_image(q, redraw_mode);
+  if (!mws.is_displayed || (mws.is_clean && mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h)) {
+    /* update_image not needed, we skip it to prevent flickering. */
+  } else {
+    /* If the new multiline_window fully covers the old one, then just do faster REDRAW (without flickering). */
+    const int redraw_mode = (mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
+        REDRAW : FULL_REDRAW;
+    /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
+    update_image(q, redraw_mode);
+  }
   gdk_draw_rectangle(q->win, q->bg_gc, 0, mws2.x, mws2.y, mws2.w, mws2.h);
   gdk_draw_rectangle(q->win, q->status_gc, 1,
                      text_left + 1,
@@ -273,6 +277,7 @@ static void apply_to_jcmd_and_multiline_window(qiv_image *q, const GdkEventKey *
 
 void qiv_handle_event(GdkEvent *ev, gpointer data)
 {
+  gboolean do_make_multiline_window_unclean = TRUE;
   gboolean exit_slideshow = FALSE;
   qiv_image *q = data;
   Window xwindow;
@@ -300,6 +305,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
       break;
 
     case GDK_LEAVE_NOTIFY:
+      do_make_multiline_window_unclean = FALSE;
       if (magnify && !fullscreen) {
         gdk_window_hide(magnify_img.win);
       }
@@ -452,6 +458,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           switch_to_normal_mode(q);
         } else if (ev->key.keyval == GDK_Tab) {  /* Abort JUMP_EDIT mode, switch to EXT_EDIT mode. */
           switch_to_ext_edit_mode(q);
+          do_make_multiline_window_unclean = FALSE;
         } else if (ev->key.keyval == GDK_Return || ev->key.keyval == GDK_KP_Enter) {
           jump2image(jcmd);
           q->is_updated = FALSE;
@@ -507,6 +514,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             switch_to_normal_mode(q);
           }
         } else {  /* Record keystroke. */
+          do_make_multiline_window_unclean = FALSE;
           apply_to_jcmd_and_multiline_window(q, &ev->key);
         }
       } else {  /* qiv_mode == NORMAL. */
@@ -1175,6 +1183,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case '\t':  // not sent this way
           case GDK_Tab:
             switch_to_ext_edit_mode(q);
+            do_make_multiline_window_unclean = FALSE;
             break;
 
             /* run qiv-command */
@@ -1183,6 +1192,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             qiv_mode = EXT_EDIT;
             jcmd[jidx = 0] = '\0';
             mess = mess_buf;
+            do_make_multiline_window_unclean = FALSE;
             apply_to_jcmd_and_multiline_window(q, &ev->key);  /* Start by typing '^'. */
             break;
 
@@ -1229,14 +1239,15 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           default:
           do_default:
             exit_slideshow = FALSE;
+            do_make_multiline_window_unclean = FALSE;
             break;
         }
       }
       break;
     default:
+      do_make_multiline_window_unclean = FALSE;
       break;
   }
-  if (exit_slideshow) {
-    slide=0;
-  }
+  if (exit_slideshow) slide = 0;
+  if (do_make_multiline_window_unclean) mws.is_clean = FALSE;
 }
