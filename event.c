@@ -373,6 +373,16 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
       qiv_exit(0);
       break;
 
+#if 0  /* TODO(pts): Even with this, Ubuntu 18.04 gnome-panel is visible. */
+    case GDK_MAP:
+      if (fullscreen) {
+        gdk_window_fullscreen(q->win);
+        gdk_window_raise(q->win);
+        gdk_window_fullscreen(q->win);
+      }
+      break;
+#endif
+
     case GDK_EXPOSE:
       if (fullscreen) {
         const gint ex = ev->expose.area.x, ey = ev->expose.area.y, ew = ev->expose.area.width, eh = ev->expose.area.height;

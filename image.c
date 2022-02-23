@@ -636,6 +636,24 @@ static void setup_win(qiv_image *q)
       gdk_window_set_geometry_hints(q->win, &geometry,
           GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE | GDK_HINT_WIN_GRAVITY);
       gdk_window_move_resize(q->win, 0, 0, screen_x, screen_y);
+      /* Even without the gdk_window_fullscreen and gdk_window_raise lines
+       * below, it (qiv -f -G) works in Ubuntu 14.04 gnome-fallback, and it
+       * covers the gnome-panel.
+       *
+       * However, even with these calls, it just almost works in Ubuntu 18.04
+       * gnome-fallback, because it doesn't cover the gnome-panel (but draws
+       * some of the image behind the panel). gedit(1) in Ubuntu 18.04 just
+       * works (it covers the panel) by calling gtk_window_fullscreen
+       * (in GTK3). What is the difference? Is it GTK2 vs GTK3? Or is it GDK
+       * vs GTK?
+       *
+       * Please note that focus passing from a fullscreen window in
+       * gnome-panel in Ubuntu 18.04 is buggy: it transfers focus at Alt-<Tab>,
+       * but it doesn't expose the target window.
+       */
+      gdk_window_fullscreen(q->win);
+      gdk_window_raise(q->win);
+      gdk_window_fullscreen(q->win);
     }
   }
   gdk_window_show(q->win);
