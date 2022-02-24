@@ -564,6 +564,7 @@ void show_help(char *name, int exit_status)
           "    --do_f_commands        Run qiv-command :f1 etc. on <F1> etc.\n"
           "    --do_grab, -a          Grab the pointer in windowed mode\n"
           "    --do_omit_load_stat    Don't call stat at image load, don't track changes\n"
+          "    --do_tag_error_pos     Move the cursor to tag error reported by qiv-command\n"
           "    --disable_grab, -G     Disable pointer/kbd grab in fullscreen mode\n"
           "    --fixed_width, -w x    Window with fixed width x\n"
           "    --fixed_zoom, -W x     Window with fixed zoom factor (percentage x)\n"

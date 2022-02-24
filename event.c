@@ -402,6 +402,57 @@ static void apply_to_jcmd_and_multiline_window(qiv_image *q, const GdkEventKey *
   }
 }
 
+/* Must return false for '\0'. */
+static gboolean istagspace(char c) {
+  return c == ' ' || c == ',' || (unsigned char)(c - 9) <= (unsigned char)13;
+}
+
+/* Finds and returns the cursor position (byte index) of the first
+ * occurrence of tag (q...p, p exclusive) in tags, or -1 if not found.
+ */
+int find_first_tag_pos(const char *tags, const char *q, const char *p) {
+  size_t tag_size = p - q;
+  const char *tags0 = tags, *tag;
+  while (*tags) {
+    for (; istagspace(*tags); ++tags) {}
+    for (tag = tags; !istagspace(*tags); ++tags) {}
+    if (0 == memcmp(tag, q, tag_size)) return tag - tags0;
+  }
+  return -1;
+}
+
+/* Finds and returns cursor position (byte index) in strs[0] corresponding
+ * to the tag error message in strs[1], strs[2] or strs[3] (typically the
+ * last one), or -1 if not found. A tag error message starts with `unknown
+ * tags (TAG1 TAG2 TAG3)', and the corresponding error position is the end
+ * of the first occurrence of any of the mentioned tags (TAG1, TAG2 and
+ * TAG3) in strs[0].
+ */
+static int find_tag_error_pos(const char *strs[]) {
+  int i, best_i;
+  const char *p = NULL, *q, *r;
+  const char *tags;
+  if (!strs[0]) return -1;
+  for (i = 1; (p = strs[i]) != NULL; ++i, p = NULL) {
+    if (0 == strncmp(p, "unknown tags (", 14) && (r = strchr(p += 14, ')')) != NULL) break;
+    if (0 == strncmp(p, "bad tag item syntax (", 21) && (r = strchr(p += 21, ')')) != NULL) break;
+  }
+  if (!p) return -1;
+  tags = strs[0];
+  best_i = -1;
+  for (; p != r;) {
+    for (; p != r && istagspace(*p); ++p) {}
+    for (q = p; p != r && !istagspace(*p); ++p) {}
+    /* Now the tag name to search is in q...p (p exclusive). */
+    i = find_first_tag_pos(tags, q, p);
+    if (i >= 0 && (best_i < 0 || i < best_i)) best_i = i;
+  }
+  if (i > 0) {  /* Move to the end of the tag. */
+    for (; !istagspace(tags[i]); ++i) {}
+  }
+  return i;
+}
+
 #define MMIN(a, b) ((a) < (b) ? (a) : (b))
 #define MMAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -685,6 +736,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             tab_mode = 1;
           }
           if (tab_mode) {
+            int jidx2 = -1;
             if (!lines || !numlines) {
               mess = mess_buf;  // Display jcmd.
             } else {
@@ -693,8 +745,10 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               jcmd[sizeof(jcmd) - 1] = '\0';
               lines[0] = jcmd;
               mess = lines;
+              if (do_tag_error_pos) jidx2 = find_tag_error_pos(lines);
             }
             jidx = jsize = strlen(jcmd);
+            if (jidx2 >= 0 && jidx2 <= jsize) jidx = jidx2;
             qiv_display_multiline_window(q, "(Expanded command)", mess, jidx,
                                          "Press <Return> to send, <Esc> to abort"); // [lc]
             do_make_multiline_window_unclean = FALSE;

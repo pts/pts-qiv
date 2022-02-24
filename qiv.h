@@ -146,6 +146,8 @@ extern int     do_f_commands;
 extern int     do_grab;
 #define QIV_FLAG_DO_OMIT_LOAD_STAT 301
 extern int     do_omit_load_stat;
+#define QIV_FLAG_DO_TAG_ERROR_POS 304
+extern int     do_tag_error_pos;
 extern int     disable_grab;
 extern int     max_rand_num;
 extern int     fixed_window_size;

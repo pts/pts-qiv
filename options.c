@@ -31,6 +31,7 @@ static struct option long_options[] =
     {"do_f_commands",    0, NULL, QIV_FLAG_DO_F_COMMANDS},
     {"do_grab",          0, NULL, 'a'},
     {"do_omit_load_stat",0, NULL, QIV_FLAG_DO_OMIT_LOAD_STAT},
+    {"do_tag_error_pos", 0, NULL, QIV_FLAG_DO_TAG_ERROR_POS},
     {"brightness",       1, NULL, 'b'},
     {"contrast",         1, NULL, 'c'},
     {"delay",            1, NULL, 'd'},
@@ -216,6 +217,8 @@ void options_read(int argc, char **argv, qiv_image *q)
             case QIV_FLAG_DO_F_COMMANDS: do_f_commands=1;
                 break;
             case QIV_FLAG_DO_OMIT_LOAD_STAT: do_omit_load_stat=1;
+                break;
+            case QIV_FLAG_DO_TAG_ERROR_POS: do_tag_error_pos=1;
                 break;
             case 'b': q->mod.brightness = (checked_atoi(optarg)+32)*8;
                 if ((q->mod.brightness<0) || (q->mod.brightness>512))
