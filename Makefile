@@ -120,7 +120,7 @@ main.o: main.h
 debug: $(PROGRAM_G)
 
 $(PROGRAM_G): $(OBJS_G)
-	$(CC) -g $(CFLAGS) $(DEFINES_G) $(LIBS) $(OBJS_G) -o $(PROGRAM_G)
+	$(CC) -g $(CFLAGS) $(DEFINES_G) $(OBJS_G) $(LIBS) -o $(PROGRAM_G)
 
 $(OBJS_G): %.g: %.c $(HEADERS)
 	$(CC) -c -g $(CFLAGS) $(DEFINES_G) $(INCLUDES) $< -o $@
