@@ -25,7 +25,8 @@ typedef enum QivMode {
 } QivMode;
 static QivMode qiv_mode;  /* NORMAL by default. */
 static char   jcmd[512];  /* Single-line text edit buffer used by both JUMP_EDIT and EXT_EDIT. Always '\0'-terminated. */
-static int    jidx;  /* Cursor position in jcmd. Currently it always points to the trailing '\0'. */
+static int    jsize;  /* Number of bytes in jcmd, excluding the trailing '\0', i.e. jsize == strlen(jcmd). */
+static int    jidx;  /* Cursor position (byte offset from beginning) in jcmd. 0 <= jidx <= jsize. */
 static const char *mess_buf[2] = { jcmd, NULL};
 static const char **mess = mess_buf;
 static int    cursor_timeout;
@@ -35,6 +36,7 @@ typedef struct _qiv_multiline_window_state {
   gboolean is_clean;
 } qiv_multiline_window_state;
 static qiv_multiline_window_state mws;  /* Default: .is_displayed = FALSE. */
+static int last_multiline_curpos;
 static const char **last_multiline_strs;
 static const char *last_multiline_continue_msg;
 
@@ -121,8 +123,8 @@ static void qiv_hide_multiline_window(qiv_image *q) {
 }
 
 static void qiv_display_multiline_window(qiv_image *q, const char *infotextdisplay,
-                                         const char *strs[], const char *continue_msg) {
-  int temp, text_w = 0, text_h, i, maxlines;
+                                         const char *strs[], int curpos, const char *continue_msg) {
+  int temp, text_w = 0, text_h, curpos_w, i, maxlines;
   int width, height, text_left;
   qiv_multiline_window_state mws2;
   int ascent, descent;
@@ -152,6 +154,12 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
     pango_layout_get_pixel_size (layout, &temp, NULL);
     if (text_w < temp) text_w = temp;
   }
+  if (curpos >= 0 && strs[0] && curpos + 0U <= strlen(strs[0]) + 0U) {
+    pango_layout_set_text(layout, strs[0], curpos);
+    pango_layout_get_pixel_size(layout, &curpos_w, NULL);
+  } else {
+    curpos_w = -1;
+  }
 
   text_h = (i + 2) * ( ascent + descent );
   text_left = width/2 - text_w/2 - 4;
@@ -171,6 +179,7 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   } else {
     has_infotext_changed = FALSE;
   }
+  last_multiline_curpos = curpos;
   last_multiline_strs = strs;
   last_multiline_continue_msg = continue_msg;
 #if DEBUG
@@ -208,6 +217,9 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
        gdk_draw_layout (q->win, q->text_gc, text_left + 4, height/2 - text_h/2  +
                   i * (ascent + descent), layout);
   }
+  if (curpos_w >= 0) {  /* Cursor in strs[0]. */
+    gdk_draw_rectangle(q->win, q->bg_gc, 1, text_left + 4 + curpos_w, height/2 - text_h/2 - 1, 1, ascent + descent + 2);
+  }
 
   /* Display continue_msg in the last line. */
   pango_layout_set_text(layout, continue_msg, -1);
@@ -232,15 +244,13 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
 static void switch_to_confirm_mode(qiv_image *q, const char **lines, gboolean is_help) {
   const char *infotextdisplay = is_help ? "(Showing Help)" : "(Command output)";
   qiv_mode = CONFIRM;
-  qiv_display_multiline_window(q, infotextdisplay, lines, "Push any key...");
-  jidx = 0;
-  jcmd[jidx = 0] = '\0';
+  qiv_display_multiline_window(q, infotextdisplay, lines, -1, "Push any key...");
+  jcmd[jidx = jsize = 0] = '\0';
 }
 
 static void switch_to_normal_mode(qiv_image *q) {
   qiv_mode = NORMAL;
-  jidx = 0;
-  jcmd[jidx = 0] = '\0';
+  jcmd[jidx = jsize = 0] = '\0';
   qiv_hide_multiline_window(q);
 }
 
@@ -271,30 +281,100 @@ static void switch_to_ext_edit_mode(qiv_image *q) {
     /* printf("line1=(%s)\n", lines[0]); */  // no newline at the end
     strncpy(jcmd, lines[0], sizeof(jcmd));
     jcmd[sizeof(jcmd) - 1] = '\0';
-    jidx = strlen(jcmd);
     lines[0] = jcmd;
     mess = lines;
   }
+  jidx = jsize = strlen(jcmd);
   qiv_mode = EXT_EDIT;
-  qiv_display_multiline_window(q, "(Tab-start command)", mess,
+  qiv_display_multiline_window(q, "(Tab-start command)", mess, jidx,
                                "Press <Return> to send, <Esc> to abort"); // [lc]
+}
+
+#define KEY_BACKSPACE_WORD ((guint)-2)
+#define KEY_DELETE_WORD ((guint)-3)
+#define KEY_LEFT_WORD ((guint)-4)
+#define KEY_RIGHT_WORD ((guint)-5)
+
+/* ASCII word characters: a-z A-Z 0-9 _ (as usual).
+ * TODO(pts): Optionally, also treat ':' as a word character, for v:... tagging.
+ * Assumes all non-ASCII Unicode characters are composed of word bytes (encoded as UTF-8, >= 128).
+ */
+static gboolean isword(char c) {
+  return (unsigned char)((c | 32) - 'a') <= (unsigned char)('z' - 'a') ||
+         (unsigned char)(c - '0') <= (unsigned char)9 ||
+         c == '_' || (unsigned char)c & (unsigned char)~127;
 }
 
 /* Returns bool indicating whether jcmd has changed. */
 static gboolean apply_to_jcmd(const GdkEventKey *evk) {
-  if (evk->keyval == GDK_BackSpace) {
-    if (jidx > 0) {
-      /* Skip trailing UTF-8 continuation bytes 0x80 ... 0xbf, and then skip 1 more byte. */
-      while (jidx > 0 && (unsigned char)(jcmd[--jidx] - 0x80) < (unsigned char)(0xc0 - 0x80)) {}
-      jcmd[jidx] = '\0';
+  guint keyval = evk->keyval;
+  if (evk->state & GDK_CONTROL_MASK) {
+    if (keyval == GDK_BackSpace) {
+      keyval = KEY_BACKSPACE_WORD;
+    } else if (keyval == GDK_Left) {
+      keyval = KEY_LEFT_WORD;
+    } else if (keyval == GDK_Delete) {
+      keyval = KEY_DELETE_WORD;
+    } else if (keyval == GDK_Right) {
+      keyval = KEY_RIGHT_WORD;
+    } else if (keyval == GDK_Prior) {  /* gedit shortcut for <PageUp>. */
+      keyval = GDK_Home;
+    } else if (keyval == GDK_Next) {  /* gedit shortcut for <PageDown>. */
+      keyval = GDK_End;
+    } else if (keyval == 'a') {  /* bash shortcut. */
+      keyval = GDK_Home;
+    } else if (keyval == 'e') {  /* bash shortcut. */
+      keyval = GDK_End;
+    } else if (keyval == '?') {  /* bash and Linux (Ubuntu 14.04 X11 and console) shortcut: Ctrl-<?> */
+      keyval = GDK_BackSpace;
+    } else if (keyval == 'd') {  /* bash shortcut. */
+      keyval = GDK_Delete;
+    } else {
+      return FALSE;
+    }
+ }
+  const int jidx0 = jidx;
+  if (keyval == GDK_BackSpace || keyval == GDK_Left) {
+    /* Skip trailing UTF-8 continuation bytes 0x80 ... 0xbf, and then skip 1 more byte. */
+    while (jidx > 0 && (unsigned char)(jcmd[--jidx] - 0x80) < (unsigned char)(0xc0 - 0x80)) {}
+    if (jidx != jidx0) {
+      if (keyval == GDK_BackSpace) { delete_backward:
+        memmove(jcmd + jidx, jcmd + jidx0, jsize - jidx0 + 1);  /* Also copies the trailing '\0' because of the + 1. */
+        jsize -= jidx0 - jidx;
+      }
       return TRUE;
     }
+  } else if (keyval == GDK_Delete || keyval == GDK_Right) {
+    if (jidx < jsize) {
+      /* Skip trailing UTF-8 continuation bytes 0x80 ... 0xbf, and then skip 1 more byte. */
+      for (++jidx; jidx != jsize && (unsigned char)(jcmd[jidx] - 0x80) < (unsigned char)(0xc0 - 0x80); ++jidx) {}
+      if (keyval == GDK_Delete) { delete_forward:
+        memmove(jcmd + jidx0, jcmd + jidx, jsize - jidx0 + 1);  /* Also copies the trailing '\0' because of the + 1. */
+        jsize -= jidx - jidx0;
+        jidx = jidx0;
+      }
+      return TRUE;
+    }
+  } else if (keyval == KEY_BACKSPACE_WORD || keyval == KEY_LEFT_WORD) {
+    /* Delete backward 0 or more non-word-characters, then 0 or more word-characters. */
+    for (; jidx > 0 && !isword(jcmd[jidx - 1]); --jidx) {}
+    for (; jidx > 0 && isword(jcmd[jidx - 1]); --jidx) {}
+    if (keyval == KEY_BACKSPACE_WORD) goto delete_backward;
+  } else if (keyval == KEY_DELETE_WORD || keyval == KEY_RIGHT_WORD) {
+    /* Delete forward 0 or more non-word-characters, then 0 or more word-characters. */
+    for (; jidx < jsize && !isword(jcmd[jidx]); ++jidx) {}
+    for (; jidx < jsize && isword(jcmd[jidx]); ++jidx) {}
+    if (keyval == KEY_DELETE_WORD) goto delete_forward;
+  } else if (keyval == GDK_Home) {
+    jidx = 0;
+  } else if (keyval == GDK_End) {
+    jidx = jsize;
   } else {
-    char bytes[7], *bp;
-    /* evk->keyval works for ASCII, accented Latin letters, Greek, Cryrillic
+    char bytes[7];
+    /* keyval works for ASCII, accented Latin letters, Greek, Cryrillic
      * etc. evk->string works only for ASCII, is empty for other keyvals.
      */
-    const guint32 uc = gdk_keyval_to_unicode(evk->keyval);
+    const guint32 uc = gdk_keyval_to_unicode(keyval);
     if (uc >= 32) {
       /* pango_layout_set_text (which displays jcmd) called from
        * qiv_display_multiline_window expects UTF-8, no matter the locale.
@@ -303,20 +383,21 @@ static gboolean apply_to_jcmd(const GdkEventKey *evk) {
        */
       const unsigned c = g_unichar_to_utf8(uc, bytes);
       /* TODO(pts): Add dynamic allocation for jcmd. */
-      if (c > 0 && jidx + c < sizeof(jcmd) - 1) {
-        bytes[c] = '\0';
-        for (bp = bytes; *bp; jcmd[jidx++] = *bp++) {}
+      if (c > 0 && jsize + c < sizeof(jcmd) - 1 && bytes[0] != '\0') {
+        memmove(jcmd + jidx + c, jcmd + jidx, jsize - jidx + 1);  /* Also copies the trailing '\0' because of the + 1. */
+        memcpy(jcmd + jidx, bytes, c);
+        jidx += c;
+        jsize += c;
+        return TRUE;
       }
-      jcmd[jidx] = '\0';
-      return TRUE;
     }
   }
-  return FALSE;
+  return jidx != jidx0;
 }
 
 static void apply_to_jcmd_and_multiline_window(qiv_image *q, const GdkEventKey *evk) {
   if (apply_to_jcmd(evk)) {
-    qiv_display_multiline_window(q, "(Editing command)", mess,
+    qiv_display_multiline_window(q, "(Editing command)", mess, jidx,
                                  "Press <Return> to send, <Esc> to abort");
   }
 }
@@ -399,7 +480,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             mws.x = sx; mws.y = sy; mws.w = sw; mws.h = sh;
             mws.is_clean = TRUE;
             /* TODO(pts): Fix ownership issues of last_multiline_strs and last_multiline_continue_msg. */
-            qiv_display_multiline_window(q, NULL, last_multiline_strs, last_multiline_continue_msg);
+            qiv_display_multiline_window(q, NULL, last_multiline_strs, last_multiline_curpos, last_multiline_continue_msg);
           }
         }
       }
@@ -580,6 +661,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
         if (ev->key.keyval == GDK_Escape ||
             (ev->key.keyval == 'c' && ev->key.state & GDK_CONTROL_MASK)) {
           switch_to_normal_mode(q);
+        } else if (ev->key.keyval == GDK_Tab && jidx != jsize) {
+          /* TODO(pts): Allow tab completion in the middle of the line. */
+          do_make_multiline_window_unclean = FALSE;
         } else if (ev->key.keyval == GDK_Return ||
                    ev->key.keyval == GDK_KP_Enter ||
                    ev->key.keyval == GDK_Tab) {
@@ -588,7 +672,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           const char **lines;
 
           if (tab_mode) {
-            qiv_display_multiline_window(q, "(Tab completion)", mess,
+            qiv_display_multiline_window(q, "(Tab completion)", mess, jidx,
                                          "<Tab> completion running...");
           } else {
             qiv_hide_multiline_window(q);
@@ -607,16 +691,16 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               /* printf("line1=(%s)\n", lines[0]); */  // no newline at the end
               strncpy(jcmd, lines[0], sizeof(jcmd));
               jcmd[sizeof(jcmd) - 1] = '\0';
-              jidx = strlen(jcmd);
               lines[0] = jcmd;
               mess = lines;
             }
-            qiv_display_multiline_window(q, "(Expanded command)", mess,
+            jidx = jsize = strlen(jcmd);
+            qiv_display_multiline_window(q, "(Expanded command)", mess, jidx,
                                          "Press <Return> to send, <Esc> to abort"); // [lc]
             do_make_multiline_window_unclean = FALSE;
           } else if (lines && numlines) {
             switch_to_confirm_mode(q, lines, FALSE);
-            jcmd[jidx = 0] = '\0';
+            jcmd[jidx = jsize = 0] = '\0';  /* Not visible anymore in multiline_window. */
           } else {  /* Empty output from command, consider it finished. */
             switch_to_normal_mode(q);
           }
@@ -1146,7 +1230,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'j':
             /* True: assert(qiv_mode == NORMAL); */
             qiv_mode = JUMP_EDIT;
-            jcmd[jidx = 0] = '\0';
+            jcmd[jidx = jsize = 0] = '\0';
             break;
 
             /* Flip horizontal */
@@ -1296,7 +1380,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case '^':    // special command with options
             /* True: assert(qiv_mode == COMMAND); */
             qiv_mode = EXT_EDIT;
-            jcmd[jidx = 0] = '\0';
+            jcmd[jidx = jsize = 0] = '\0';
             mess = mess_buf;
             do_make_multiline_window_unclean = FALSE;
             apply_to_jcmd_and_multiline_window(q, &ev->key);  /* Start by typing '^'. */
