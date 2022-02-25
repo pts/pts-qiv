@@ -38,6 +38,7 @@ static int check_magic(const char *name);
 int main(int argc, char **argv)
 {
   struct timeval tv;
+  gboolean has_arg;
 
   // [as] workaround for problem with X composite extension
   // is this still needed with imlib2 ??
@@ -62,6 +63,7 @@ int main(int argc, char **argv)
   /* Set up our options, image list, etc */
   strncpy(select_dir, SELECT_DIR, sizeof select_dir);
   reset_mod(&main_img);
+  has_arg = argv[1] != NULL;
   options_read(argc, argv, &main_img);
 
   /* Initialize GDK */
@@ -115,8 +117,12 @@ int main(int argc, char **argv)
     filter_images(&images,image_names);
 
   if (!images) { /* No images to display */
-    g_print("qiv: cannot load any images.\n");
-    usage(argv[0],1);
+    if (has_arg) {  /* argv had least one image or flag. */
+      fprintf(stderr, "qiv: cannot load any images.\n");
+      gdk_exit(1);
+    } else {
+      usage(argv[0],1);
+    }
   }
 
   /* get colors */
