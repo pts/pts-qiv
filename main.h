@@ -31,7 +31,7 @@ gint	center = CENTER;
 gint	default_brightness = DEFAULT_BRIGHTNESS;
 gint	default_contrast = DEFAULT_CONTRAST;
 gint	default_gamma = DEFAULT_GAMMA;
-gint	delay = SLIDE_DELAY; /* delay in slideshow mode in seconds */
+gint	delay = SLIDE_DELAY; /* delay in slideshow mode in seconds; if nonpositive, it's an offset to an array of subsecond delays */
 int	readonly = 0; /* TRUE if (un)deletion of images should be impossible */
 int	random_order; /* TRUE if random delay in slideshow */
 int	random_replace = 1; /* random with replacement by default */

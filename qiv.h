@@ -173,6 +173,7 @@ extern void get_preferred_xinerama_screens(void);
 
 extern void qiv_exit(int);
 extern void qiv_load_image();
+extern gint add_to_delay(gint delay_delta);
 
 /* image.c */
 

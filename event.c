@@ -463,6 +463,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
   qiv_image *q = data;
   Window xwindow;
   int move_step;
+  gint new_delay_ms;
 
   // get windows position if not in fullscreen mode
   // (because the user might have moved the window our since last redraw)
@@ -1380,15 +1381,22 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* Decrease slideshow delay */
           case GDK_F11:
             if (do_f_commands) goto do_f_command;
+            /* fallthrough */
+          case ']':  /* Faster, like mplayer(1). */
+            new_delay_ms = add_to_delay(-1);
+           after_change_delay:
             exit_slideshow = FALSE;
-            if (delay > 1000) {
-              delay-=1000;
-              snprintf(infotext, sizeof infotext, "(Slideshow-Delay: %d seconds (-1)", delay/1000);
-            }else{
-              snprintf(infotext, sizeof infotext, "(Slideshow-Delay: can not be less than 1 second!)");
-            }
+            snprintf(infotext, sizeof infotext, "(Slideshow-delay: %d ms)", new_delay_ms);
             update_image(q, STATUSBAR);
             break;
+
+            /* Increase slideshow delay */
+          case GDK_F12:
+            if (do_f_commands) goto do_f_command;
+            /* fallthrough */
+          case '[':  /* Slower, like mplayer(1). */
+            new_delay_ms = add_to_delay(1);
+            goto after_change_delay;
 
             /* Show magnifying window */
           case '<':       // [lc]
@@ -1406,14 +1414,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             }
             break;
 
-            /* Increase slideshow delay */
-          case GDK_F12:
-            if (do_f_commands) goto do_f_command;
-            exit_slideshow = FALSE;
-            delay+=1000;
-            snprintf(infotext, sizeof infotext, "(Slideshow-Delay: %d seconds (+1)", delay/1000);
-            update_image(q, STATUSBAR);
-            break;
 
 #ifdef GTD_XINERAMA
             /* go to next xinerama screen */

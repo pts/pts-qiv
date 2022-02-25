@@ -211,6 +211,36 @@ static gboolean qiv_handle_timer(gpointer data)
   return FALSE;
 }
 
+/* In milliseconds. */
+static gint NONPOSITIVE_SLIDE_DELAYS[] = {
+    700, 500, 300, 200, 150, 100, 70, 50, 30, 20, 15, 10, 7, 5};
+
+static gint get_use_delay(gint use_delay) {
+  if (use_delay > 0) return use_delay;
+  {
+    const int limit = sizeof(NONPOSITIVE_SLIDE_DELAYS) / sizeof(NONPOSITIVE_SLIDE_DELAYS[0]);
+    return NONPOSITIVE_SLIDE_DELAYS[-use_delay < limit ? -use_delay : limit - 1];
+  }
+}
+
+gint add_to_delay(gint delay_delta) {
+  if (delay_delta > 0) {
+    delay += (delay >= 0) ? 1000 : 1;  /* 1000 is in milliseconds. */
+  } else if (delay_delta < 0) {
+    const int limit = sizeof(NONPOSITIVE_SLIDE_DELAYS) / sizeof(NONPOSITIVE_SLIDE_DELAYS[0]);
+    if (delay >= 2000) {
+      delay -= 1000;
+    } else if (delay > 1000) {
+      delay = 1000;
+    } else if (delay > 0) {
+      delay = 0;
+    } else {
+      --delay;
+    }
+    if (-delay >= limit) delay = -(limit - 1);
+  }
+  return get_use_delay(delay);
+}
 
 /*
  *    Slideshow timer (re)start function
@@ -219,7 +249,7 @@ static gboolean qiv_handle_timer(gpointer data)
 static void qiv_timer_restart(gpointer dummy)
 {
   (void)dummy;
-  g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, delay,
+  g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, get_use_delay(delay),
                      qiv_handle_timer, &slide,
                      qiv_timer_restart);
 }
