@@ -471,6 +471,13 @@ void finish(int sig)
   exit(0);
 }
 
+static int last_direction = 1;  /* Delta of last change of index of image */
+
+/* If 0, keep unchanged; otherwise set to 1 (forward) or -1 (backward). */
+int set_image_direction(int direction) {
+  if (direction) last_direction = direction >= 0 ? 1 : -1;
+  return last_direction;
+}
 
 /*
   Update selected image index image_idx
@@ -479,12 +486,10 @@ void finish(int sig)
 */
 void next_image(int direction)
 {
-  static int last_modif = 1;	/* Delta of last change of index of image */
-
   if (!direction)
-    direction = last_modif;
+    direction = last_direction;
   else
-    last_modif = direction;
+    last_direction = direction >= 0 ? 1 : -1;
   if (random_order)
     image_idx = get_random(random_replace, images, direction);
   else {

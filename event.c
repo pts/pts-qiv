@@ -1141,7 +1141,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case ' ':
           next_image:
-            if  (ev->key.state & GDK_CONTROL_MASK) {
+            if (slide) {
+              set_image_direction(1);
+             abort_slideshow:
+              snprintf(infotext, sizeof infotext, "(Slideshow aborted)");
+              update_image(q, STATUSBAR);
+              break;
+            } else if  (ev->key.state & GDK_CONTROL_MASK) {
               snprintf(infotext, sizeof infotext, "(Next picture directory)");
               next_image_dir(1);
             } else {
@@ -1166,7 +1172,10 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case GDK_BackSpace:
           previous_image:
-            if  (ev->key.state & GDK_CONTROL_MASK) {
+            if (slide) {
+              set_image_direction(-1);
+              goto abort_slideshow;
+            } else if  (ev->key.state & GDK_CONTROL_MASK) {
               snprintf(infotext, sizeof infotext, "(Previous picture directory)");
               next_image_dir(-1);
             } else {
@@ -1375,11 +1384,10 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             if (delay > 1000) {
               delay-=1000;
               snprintf(infotext, sizeof infotext, "(Slideshow-Delay: %d seconds (-1)", delay/1000);
-              update_image(q,MOVED);
             }else{
               snprintf(infotext, sizeof infotext, "(Slideshow-Delay: can not be less than 1 second!)");
-              update_image(q,MOVED);
             }
+            update_image(q, STATUSBAR);
             break;
 
             /* Show magnifying window */
@@ -1404,7 +1412,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             exit_slideshow = FALSE;
             delay+=1000;
             snprintf(infotext, sizeof infotext, "(Slideshow-Delay: %d seconds (+1)", delay/1000);
-            update_image(q,MOVED);
+            update_image(q, STATUSBAR);
             break;
 
 #ifdef GTD_XINERAMA

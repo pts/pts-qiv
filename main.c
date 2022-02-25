@@ -128,7 +128,7 @@ int main(int argc, char **argv)
   /* Display first image first, except in random mode */
 
   if (random_order)
-    next_image(0);
+    next_image(1);
 
   //disabled because 'params' is never used, see above
   //if (to_root || to_root_t || to_root_s) {
