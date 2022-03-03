@@ -192,20 +192,19 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
     /* Condition above: multiline_window became narrower, typically because of <Backspace>. */
     update_image_or_background_noflush(q, mws.x, mws.y, mws2.x - mws.x, mws.h, FALSE);
     update_image_or_background_noflush(q, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h, has_infotext_changed);  /* STATUSBAR */
-  } else {
-    /* Do the slowest FULL_REDRAW only if the new multiline_window doesn't
-     * fully cover the old one. Otherwise do the slow REDRAW if anything
-     * other than EXT_EDIT typing has happened (!mws.is_clean) since the
-     * last draw, otherwise do the fast STATUSBAR (or even less).
+  } else if (mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) {
+    /* The new multiline_window covers the old one. Do the slow REDRAW if
+     * anything other than EXT_EDIT typing has happened (!mws.is_clean)
+     * since the last draw, otherwise do the fast STATUSBAR (or even less).
      */
-    const int redraw_mode = !(mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
-        FULL_REDRAW : mws.is_clean ? STATUSBAR : REDRAW;
-    if (redraw_mode == STATUSBAR) {
+    if (mws.is_clean) {  /* TODO(pts): Get rid of mws.is_clean, make it always clean. */
       update_image_or_background_noflush(q, mws.x, mws.y, mws.w, mws.h, has_infotext_changed);  /* STATUSBAR */
     } else {
-      /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
-      update_image_noflush(q, redraw_mode);
+      update_image_noflush(q, REDRAW);
     }
+  } else {  /* The new multiline_window doesn't fully cover the old one. */
+    q->win_ow = q->win_oh = -1;  /* Force full (and flickering) q->win redraw below. */
+    update_image_noflush(q, REDRAW);
   }
   gdk_draw_rectangle(q->win, q->bg_gc, 0, mws2.x, mws2.y, mws2.w - 1, mws2.h - 1);
   gdk_draw_rectangle(q->win, q->status_gc, 1,
@@ -273,7 +272,7 @@ static void switch_to_ext_edit_mode(qiv_image *q) {
   const char **lines;
 
   switch_to_normal_mode(q);
-  /* This may reload the image. */
+  /* This may reload the image, and it may call update_image to hide the multiline_window. */
   run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
   if (!lines || !numlines) {
     mess = mess_buf;  // Display jcmd.
@@ -702,8 +701,8 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
         } else if (ev->key.keyval == GDK_Return || ev->key.keyval == GDK_KP_Enter) {
           jump2image(jcmd);
           q->is_updated = FALSE;
-          qiv_load_image(q);  /* Does update_image(q, FULL_REDRAW) unless in slideshow mode. */
-          if (q->is_updated) mws.is_displayed = FALSE;  /* Speedup to avoid another FULL_REDRAW. */
+          qiv_load_image(q);  /* Does update_image(q, REDRAW) unless in slideshow mode. TODO(pts): Is slideshow mode possible here? Get rid of q->is_updated. */
+          if (q->is_updated) mws.is_displayed = FALSE;  /* Speedup to avoid another flickering REDRAW. */
           switch_to_normal_mode(q);
         } else {  /* Record keystroke. */
           apply_to_jcmd(&ev->key);
@@ -729,7 +728,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           } else {
             qiv_hide_multiline_window(q);
           }
-          /* This may reload the image. Typically it only updates the STATUSBAR. */
+          /* This may reload the image, and it may call update_image to hide
+           * the multiline_window. Typically it only updates the STATUSBAR.
+           *
+           * TODO(pts): If the multiline_window is hidden by this, set
+           * do_make_multiline_window_unclean = TRUE to ask for an eventual
+           * redraw. It's already happening, except for tab_mode.
+           */
           run_command(q, jcmd, tab_mode, image_names[image_idx], &numlines, &lines);
           if (!tab_mode && lines && numlines > 1 && lines[1][0] == '\007') {
             /* Let an error message starting with \007 propagate */
@@ -832,7 +837,8 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             transparency ^= 1;
             snprintf(infotext, sizeof infotext, transparency ?
                      "(Transparency: on)" : "(Transparency: off)");
-            update_image(q, FULL_REDRAW);
+            q->win_ow = q->win_oh = -1;  /* Force full (and flickering) q->win redraw below. */
+            update_image(q, REDRAW);
             break;
 
             /* Maxpect on/off */
@@ -1431,7 +1437,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             snprintf(infotext, sizeof infotext,
                      "(xinerama screen: %i)", user_screen);
             if (center) center_image(q);
-            update_image(q, FULL_REDRAW);
+            update_image(q, REDRAW);
           break;
 #endif
 

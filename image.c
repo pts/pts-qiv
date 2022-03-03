@@ -527,7 +527,7 @@ void qiv_load_image(qiv_image *q) {
       qiv_exit(0);
   }
 
-  update_image(q, FULL_REDRAW);
+  update_image(q, REDRAW);
 //    if (magnify && !fullscreen) {  // [lc]
 //     setup_magnify(q, &magnify_img);
 //     update_magnify(q, &magnify_img, FULL_REDRAW, 0, 0);
@@ -573,6 +573,10 @@ static void setup_win(qiv_image *q, GdkColor *win_bg)
 {
   GdkWindowAttr attr;
 
+  /* To get gdk_window_clear called in update_window. It's also important
+   * when toggling fullscreen.
+   */
+  q->win_ow = q->win_oh = -1;
   if (!fullscreen) {
     attr.window_type=GDK_WINDOW_TOPLEVEL;
     attr.wclass=GDK_INPUT_OUTPUT;
@@ -1011,7 +1015,7 @@ void update_image_noflush(qiv_image *q, int mode) {
 
   q->is_updated = TRUE;
   {
-    if (mode == REDRAW || mode == FULL_REDRAW)
+    if (mode == REDRAW)
       setup_imlib_color_modifier(q->mod);
 
     if (mode == MOVED || mode == STATUSBAR) {
@@ -1089,6 +1093,9 @@ void update_image_noflush(qiv_image *q, int mode) {
         }
       }
     }
+    /* This makes gdk update the X11 window, to show the new background
+     * image. It doesn't cause any flickering.
+     */
     gdk_window_clear(q->win);
   } // if (!fullscreen)
   else
@@ -1106,10 +1113,9 @@ void update_image_noflush(qiv_image *q, int mode) {
 # define statusbar_x screen_x
 # define statusbar_y screen_y
 #endif
-    if (mode == FULL_REDRAW) {
-      gdk_window_clear(q->win);
-    } else if (mode == STATUSBAR) {
-    } else {
+    if (q->win_ow < 0 && q->win_oh < 0) {
+      gdk_window_clear(q->win);  /* Draws with the color of q->bg_gc. */
+    } else if (mode != STATUSBAR) {
       if (q->win_x > q->win_ox)
         gdk_draw_rectangle(q->win, q->bg_gc, 1,
           q->win_ox, q->win_oy, q->win_x - q->win_ox, q->win_oh);

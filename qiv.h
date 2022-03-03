@@ -181,7 +181,6 @@ extern gint add_to_delay(gint delay_delta);
 #define REDRAW 0
 #define MOVED  1
 #define ZOOMED 2
-#define FULL_REDRAW 3
 #define STATUSBAR 4
 
 extern void qiv_load_image(qiv_image *);

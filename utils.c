@@ -390,7 +390,7 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
     for (i = 0; i < *numlines; i++) {
       lines[i] = lines[i+1];
     }
-    update_image(q, FULL_REDRAW);
+    update_image(q, REDRAW);
     return;
   }
 
