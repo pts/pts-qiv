@@ -522,13 +522,6 @@ void qiv_load_image(qiv_image *q) {
       qiv_exit(0);
   }
 
-  if (do_grab || (fullscreen && !disable_grab) ) {
-    gdk_keyboard_grab(q->win, FALSE, CurrentTime);
-    gdk_pointer_grab(q->win, FALSE,
-      GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_ENTER_NOTIFY_MASK |
-      GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK, NULL, NULL, CurrentTime);
-  }
-
   gettimeofday(&load_after, 0);
   /* load_elapsed used by update_image. */
   load_elapsed = ((load_after.tv_sec +  load_after.tv_usec / 1.0e6) -
@@ -656,6 +649,13 @@ static void setup_win(qiv_image *q, GdkColor *win_bg)
   }
   gdk_window_set_background(q->win, win_bg);
   gdk_window_show(q->win);
+  if (do_grab || (fullscreen && !disable_grab) ) {
+    /* These must be called after gdk_window_show. */
+    gdk_keyboard_grab(q->win, FALSE, CurrentTime);
+    gdk_pointer_grab(q->win, FALSE,
+      GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_ENTER_NOTIFY_MASK |
+      GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK, NULL, NULL, CurrentTime);
+  }
 
   q->bg_gc = gdk_gc_new(q->win);
   q->text_gc = gdk_gc_new(q->win); /* black is default */
