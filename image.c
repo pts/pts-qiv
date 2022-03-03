@@ -648,6 +648,21 @@ static void setup_win(qiv_image *q, GdkColor *win_bg)
     }
   }
   gdk_window_set_background(q->win, win_bg);
+  q->bg_gc = gdk_gc_new(q->win);
+  q->text_gc = gdk_gc_new(q->win); /* black is default */
+  q->status_gc = gdk_gc_new(q->win);
+  gdk_gc_set_foreground(q->bg_gc, &image_bg);
+  gdk_gc_set_foreground(q->status_gc, &text_bg);
+  {
+    GdkPixmap *cursor_pixmap = gdk_bitmap_create_from_data(q->win, blank_cursor, 1, 1);
+    invisible_cursor = gdk_cursor_new_from_pixmap(cursor_pixmap, cursor_pixmap,
+                                                  &text_bg, &text_bg, 0, 0);
+    gdk_bitmap_unref(cursor_pixmap);  /* invisible_cursor holds a reference. */
+  }
+  if (!visible_cursor) visible_cursor = gdk_cursor_new(CURSOR);
+  cursor = NULL;
+  setup_imlib_for_drawable(GDK_DRAWABLE(q->win));
+
   gdk_window_show(q->win);
   if (do_grab || (fullscreen && !disable_grab) ) {
     /* These must be called after gdk_window_show. */
@@ -656,23 +671,7 @@ static void setup_win(qiv_image *q, GdkColor *win_bg)
       GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_ENTER_NOTIFY_MASK |
       GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK, NULL, NULL, CurrentTime);
   }
-
-  q->bg_gc = gdk_gc_new(q->win);
-  q->text_gc = gdk_gc_new(q->win); /* black is default */
-  q->status_gc = gdk_gc_new(q->win);
-  gdk_gc_set_foreground(q->bg_gc, &image_bg);
-  gdk_gc_set_foreground(q->status_gc, &text_bg);
-
-  {
-    GdkPixmap *cursor_pixmap = gdk_bitmap_create_from_data(q->win, blank_cursor, 1, 1);
-    invisible_cursor = gdk_cursor_new_from_pixmap(cursor_pixmap, cursor_pixmap,
-                                                  &text_bg, &text_bg, 0, 0);
-    gdk_bitmap_unref(cursor_pixmap);  /* invisible_cursor holds a reference. */
-  }
-  if (!visible_cursor) visible_cursor = gdk_cursor_new(CURSOR);
   show_cursor(q);
-
-  setup_imlib_for_drawable(GDK_DRAWABLE(q->win));
 }
 
 void hide_cursor(qiv_image *q)
@@ -1241,6 +1240,7 @@ void destroy_win(qiv_image *q) {
     /*gdk_cursor_unref(invisible_cursor);*/  /* If doing it again: Gdk-CRITICAL **: IA__gdk_cursor_unref: assertion 'cursor->ref_count > 0' failed */
     invisible_cursor = NULL;
   }
+  cursor = NULL;
   gdk_window_withdraw(q->win);
   gdk_window_destroy(q->win);
   q->win = NULL;
