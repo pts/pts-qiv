@@ -992,6 +992,10 @@ static void draw_image_or_background(qiv_image *q, gint x, gint y, gint w, gint 
   }
 }
 
+void update_win_title_to_nonload(qiv_image *q) {
+  update_win_title(q, image_names[image_idx], NAN);
+}
+
 /* Something changed the image. Redraw it. Don't (always) flush. */
 void update_image_noflush(qiv_image *q, int mode) {
   GdkPixmap * m = NULL;
@@ -1011,6 +1015,7 @@ void update_image_noflush(qiv_image *q, int mode) {
       setup_imlib_color_modifier(q->mod);
 
     if (mode == MOVED || mode == STATUSBAR) {
+      if (mode == MOVED) update_win_title_to_nonload(q);
       if (transparency && used_masks_before) {
         /* there should be a faster way to update the mask, but how? */
 	if (q->p)
@@ -1024,7 +1029,6 @@ void update_image_noflush(qiv_image *q, int mode) {
 				  gdk_drawable_get_colormap(GDK_DRAWABLE(q->win)));
 	m = gdk_pixmap_foreign_new(x_mask);
       }
-      update_win_title(q, image_names[image_idx], NAN);
     } // mode == MOVED
     else
     {
@@ -1036,19 +1040,18 @@ void update_image_noflush(qiv_image *q, int mode) {
       /* calculate elapsed time while we render image */
       gettimeofday(&before, 0);
       imlib_render_pixmaps_for_whole_image_at_size(&x_pixmap, &x_mask, q->win_w, q->win_h);
-      gettimeofday(&after, 0);
-      elapsed = ((after.tv_sec +  after.tv_usec / 1.0e6) -
-                 (before.tv_sec + before.tv_usec / 1.0e6));
-
       q->p = gdk_pixmap_foreign_new(x_pixmap);
       gdk_drawable_set_colormap(GDK_DRAWABLE(q->p),
 				gdk_drawable_get_colormap(GDK_DRAWABLE(q->win)));
       m = x_mask == None ? NULL : gdk_pixmap_foreign_new(x_mask);
+      gettimeofday(&after, 0);
+      elapsed = ((after.tv_sec +  after.tv_usec / 1.0e6) -
+                 (before.tv_sec + before.tv_usec / 1.0e6));
+      update_win_title(q, image_names[image_idx], load_elapsed + elapsed);
 
 #ifdef DEBUG
       if (m)  g_print("*** image has transparency\n");
 #endif
-      update_win_title(q, image_names[image_idx], load_elapsed + elapsed);
     }
   }
 

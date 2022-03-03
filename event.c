@@ -112,7 +112,7 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
 
 static void qiv_hide_multiline_window(qiv_image *q) {
   if (mws.is_displayed) {
-    update_image_or_background_noflush(q, mws.x, mws.y, mws.w, mws.h, TRUE);
+    update_image_or_background_noflush(q, mws.x, mws.y, mws.w, mws.h, TRUE);  /* STATUSBAR */
     if (mws.is_clean) {
       gdk_flush();
     } else {  /* Shouldn't happen. */
@@ -191,17 +191,17 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   } else if (mws.is_clean && mws.x <= mws2.x && mws.y == mws2.y && mws.x + mws.w >= mws2.x + mws2.w && mws.y + mws.h == mws2.y + mws2.h) {
     /* Condition above: multiline_window became narrower, typically because of <Backspace>. */
     update_image_or_background_noflush(q, mws.x, mws.y, mws2.x - mws.x, mws.h, FALSE);
-    update_image_or_background_noflush(q, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h, has_infotext_changed);
+    update_image_or_background_noflush(q, mws2.x + mws2.w, mws.y, mws.x + mws.w - mws2.x - mws2.w, mws.h, has_infotext_changed);  /* STATUSBAR */
   } else {
     /* Do the slowest FULL_REDRAW only if the new multiline_window doesn't
      * fully cover the old one. Otherwise do the slow REDRAW if anything
      * other than EXT_EDIT typing has happened (!mws.is_clean) since the
-     * last draw, otherwise do the fast MOVED.
+     * last draw, otherwise do the fast STATUSBAR (or even less).
      */
     const int redraw_mode = !(mws.x >= mws2.x && mws.y >= mws2.y && mws.x + mws.w <= mws2.x + mws2.w && mws.y + mws.h <= mws2.y + mws2.h) ?
-        FULL_REDRAW : mws.is_clean ? MOVED : REDRAW;
-    if (redraw_mode == MOVED) {
-      update_image_or_background_noflush(q, mws.x, mws.y, mws.w, mws.h, has_infotext_changed);
+        FULL_REDRAW : mws.is_clean ? STATUSBAR : REDRAW;
+    if (redraw_mode == STATUSBAR) {
+      update_image_or_background_noflush(q, mws.x, mws.y, mws.w, mws.h, has_infotext_changed);  /* STATUSBAR */
     } else {
       /* TODO(pts): Redraw the multiline_window if the main window q->win is exposed. */
       update_image_noflush(q, redraw_mode);
@@ -525,7 +525,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                            is_full, ev->expose.area.x, ev->expose.area.y, ev->expose.area.width - !is_full, ev->expose.area.height - !is_full);
 #endif
         /* TODO(pts): Draw the statusbar only to the exposed area. */
-        update_image_or_background_noflush(q, ex, ey, ew, eh, has_intersection_with_statusbar(q, ex, ey, ew, eh));
+        update_image_or_background_noflush(q, ex, ey, ew, eh, has_intersection_with_statusbar(q, ex, ey, ew, eh));  /* STATUSBAR */
         if (mws.is_displayed) {
           const gint sx = MMAX(mws.x, ex), sy = MMAX(mws.y, ey), sw = MMIN(mws.x + mws.w, ex + ew) - sx, sh = MMIN(mws.y + mws.h, ey + eh) - sy;  /* Calculate intersection. */
           if (sx > 0 && sy > 0) {
@@ -890,6 +890,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               snprintf(infotext, sizeof infotext, statusbar_window ?
                        "(Statusbar: on)" : "(Statusbar: off)");
             }
+            update_win_title_to_nonload(q);
             update_image(q, STATUSBAR);
             break;
 
@@ -900,7 +901,8 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             slide ^= 1;
             snprintf(infotext, sizeof infotext, slide ?
                      "(Slideshow: on)" : "(Slideshow: off)");
-            update_image(q, REDRAW);
+            update_win_title_to_nonload(q);
+            update_image(q, STATUSBAR);
             break;
 
             /* move image right */
@@ -1146,6 +1148,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               set_image_direction(1);
              abort_slideshow:
               snprintf(infotext, sizeof infotext, "(Slideshow aborted)");
+              update_win_title_to_nonload(q);
               update_image(q, STATUSBAR);
               break;
             } else if  (ev->key.state & GDK_CONTROL_MASK) {
@@ -1387,6 +1390,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
            after_change_delay:
             exit_slideshow = FALSE;
             snprintf(infotext, sizeof infotext, "(Slideshow-delay: %d ms)", new_delay_ms);
+            update_win_title_to_nonload(q);
             update_image(q, STATUSBAR);
             break;
 
