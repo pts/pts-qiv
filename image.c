@@ -19,7 +19,7 @@
 #include "qiv.h"
 #include "xmalloc.h"
 
-static void setup_win(qiv_image *);
+static void setup_win(qiv_image *, GdkColor *win_bg);
 //static void setup_magnify(qiv_image *, qiv_mgl *); // [lc]
 static int used_masks_before=0;
 static double load_elapsed;
@@ -456,10 +456,10 @@ void qiv_load_image(qiv_image *q) {
     if (is_first_error) {
       check_size(q, TRUE);
       if (first) {
-        setup_win(q);
+        setup_win(q, &error_bg);
         first = 0;
       }
-      gdk_window_set_background(q->win, &error_bg);
+      gdk_flush();
       gdk_beep();
       is_first_error = 0;
     }
@@ -509,7 +509,7 @@ void qiv_load_image(qiv_image *q) {
   check_size(q, TRUE);
 
   if (first) {
-    setup_win(q);
+    setup_win(q, &image_bg);
     first = 0;
   }
 
@@ -521,8 +521,6 @@ void qiv_load_image(qiv_image *q) {
     else
       qiv_exit(0);
   }
-
-  gdk_window_set_background(q->win, &image_bg);
 
   if (do_grab || (fullscreen && !disable_grab) ) {
     gdk_keyboard_grab(q->win, FALSE, CurrentTime);
@@ -578,7 +576,7 @@ static void setup_imlib_color_modifier(qiv_color_modifier q)
   imlib_modify_color_modifier_contrast(q.contrast / 256.0);
 }
 
-static void setup_win(qiv_image *q)
+static void setup_win(qiv_image *q, GdkColor *win_bg)
 {
   GdkWindowAttr attr;
 
@@ -656,6 +654,7 @@ static void setup_win(qiv_image *q)
       gdk_window_fullscreen(q->win);
     }
   }
+  gdk_window_set_background(q->win, win_bg);
   gdk_window_show(q->win);
 
   q->bg_gc = gdk_gc_new(q->win);
