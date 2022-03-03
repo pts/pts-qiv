@@ -508,6 +508,11 @@ void qiv_load_image(qiv_image *q) {
 
   check_size(q, TRUE);
 
+  gettimeofday(&load_after, 0);
+  /* load_elapsed used by update_image. */
+  load_elapsed = ((load_after.tv_sec +  load_after.tv_usec / 1.0e6) -
+                 (load_before.tv_sec + load_before.tv_usec / 1.0e6));
+
   if (first) {
     setup_win(q, &image_bg);
     first = 0;
@@ -521,11 +526,6 @@ void qiv_load_image(qiv_image *q) {
     else
       qiv_exit(0);
   }
-
-  gettimeofday(&load_after, 0);
-  /* load_elapsed used by update_image. */
-  load_elapsed = ((load_after.tv_sec +  load_after.tv_usec / 1.0e6) -
-                 (load_before.tv_sec + load_before.tv_usec / 1.0e6));
 
   update_image(q, FULL_REDRAW);
 //    if (magnify && !fullscreen) {  // [lc]
