@@ -1037,7 +1037,8 @@ void update_image_noflush(qiv_image *q, int mode) {
     else
     {
       if (q->p) {
-	imlib_free_pixmap_and_mask(GDK_PIXMAP_XID(q->p));
+        gdk_window_set_background(q->win, &image_bg);
+        imlib_free_pixmap_and_mask(GDK_PIXMAP_XID(q->p));
 	g_object_unref(q->p);
       }
 
@@ -1230,6 +1231,7 @@ void reset_mod(qiv_image *q)
 void destroy_image(qiv_image *q)
 {
   if (q->p) {
+    gdk_window_set_background(q->win, &image_bg);  /* Drop reference to q->p. */
     imlib_free_pixmap_and_mask(GDK_PIXMAP_XID(q->p));
     g_object_unref(q->p);
     q->p = NULL;
