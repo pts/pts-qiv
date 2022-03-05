@@ -306,8 +306,9 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
   *numlines = 0;
   *output = lines;
 
-  // TODO(pts): Escape ' as '\'' in n and filename here.
-  snprintf(infotext, sizeof infotext, "Running: qiv-command '%s' '%s'%s", n, filename, tab_mode_extra);
+  /* TODO(pts): Escape ' as '\'' in n and filename here. */
+  /* Don't show this infotext until to command has succeeded, to prevent some infotext flickering. */
+  snprintf(infotext, sizeof infotext, "Run: qiv-command '%s' '%s'%s", n, filename, tab_mode_extra);
 
   /* Use some pipes for stdout and stderr */
 
@@ -399,6 +400,7 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
     strncpy(infotext, lines[0] + 1, sizeof(infotext) - 1);
     infotext[sizeof(infotext) - 1] = '\0';
     *numlines = 0;
+    update_win_title_to_nonload(q);
   }
 
   /* If image modified reload, otherwise redraw */
