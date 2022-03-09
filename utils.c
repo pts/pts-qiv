@@ -164,6 +164,9 @@ int copy2select()
   fprintf(stderr, "copy   to=(%s)\n", dstfile);
 #endif
 
+  /* Exactly the same file, no need to copy. */
+  if (0 == strcmp(filename1, dstfile)) return 0;
+
   /* Just in case the file already exists... */
   /* unlink(dstfile); */
   snprintf(dstfilebak, sizeof dstfilebak, "%s", dstfile);
