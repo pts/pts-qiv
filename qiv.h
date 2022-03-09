@@ -74,7 +74,7 @@ typedef struct _qiv_image {
   double drag_start_x, drag_start_y; /* position of cursor at drag start */
   int drag_win_x, drag_win_y; /* position of win at drag start */
 //  char        infotext[BUF_LEN];
-  gchar win_title[BUF_LEN];
+  gchar win_title_no_infotext[BUF_LEN];
   gint text_w, text_h;
 } qiv_image;
 
@@ -194,7 +194,6 @@ extern void reload_image(qiv_image *q);
 extern void reset_coords(qiv_image *);
 extern void check_size(qiv_image *, gint);
 extern void render_to_pixmap(qiv_image *, double *);
-extern void update_win_title_to_nonload(qiv_image *q);
 extern void update_image(qiv_image *, int);
 extern void update_image_noflush(qiv_image *, int);
 extern void update_image_or_background_noflush(qiv_image *q, gint x, gint y, gint w, gint h, gboolean force_update_statusbar);
@@ -241,3 +240,4 @@ extern gboolean qiv_watch_file (gpointer);
 extern int rreaddir(const char *, int);
 extern int rreadfile(const char *);
 extern int find_image(int images, char **image_names, char *name);
+extern void qiv_layout_set_text_with_infotext(qiv_image *q, gboolean is_title);

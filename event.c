@@ -572,7 +572,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                            MAX(3,q->win_w-q->text_w-9), MAX(3,q->win_h-q->text_h-9),
                            q->text_w+4, q->text_h+4);
 
-        pango_layout_set_text(layout, q->win_title, -1);
+        qiv_layout_set_text_with_infotext(q, FALSE);
         pango_layout_get_pixel_size (layout, &(q->text_w), &(q->text_h));
         gdk_draw_layout (q->win, q->text_gc, MAX(5,q->win_w-q->text_w-7),  MAX(5,q->win_h-7-q->text_h), layout);
       }
@@ -896,7 +896,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               snprintf(infotext, sizeof infotext, statusbar_window ?
                        "(Statusbar: on)" : "(Statusbar: off)");
             }
-            update_win_title_to_nonload(q);
             update_image(q, STATUSBAR);
             break;
 
@@ -907,7 +906,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             slide ^= 1;
             snprintf(infotext, sizeof infotext, slide ?
                      "(Slideshow: on)" : "(Slideshow: off)");
-            update_win_title_to_nonload(q);
             update_image(q, STATUSBAR);
             break;
 
@@ -1154,7 +1152,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               set_image_direction(1);
              abort_slideshow:
               snprintf(infotext, sizeof infotext, "(Slideshow aborted)");
-              update_win_title_to_nonload(q);
               update_image(q, STATUSBAR);
               break;
             } else if  (ev->key.state & GDK_CONTROL_MASK) {
@@ -1273,7 +1270,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               } else {
                 gdk_beep();
                 snprintf(infotext, sizeof infotext, "(Delete failed!)");
-                update_win_title_to_nonload(q);
                 update_image(q, STATUSBAR);
               }
             }
@@ -1289,7 +1285,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               } else {
                 gdk_beep();
                 snprintf(infotext, sizeof infotext, "(Undelete failed!)");
-                update_win_title_to_nonload(q);
                 update_image(q, STATUSBAR);
               }
             }
@@ -1305,7 +1300,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             } else {
               gdk_beep();
               snprintf(infotext, sizeof infotext, "(Copy failed!)");
-              update_win_title_to_nonload(q);
               update_image(q, STATUSBAR);
             }
             break;
@@ -1408,7 +1402,6 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
            after_change_delay:
             exit_slideshow = FALSE;
             snprintf(infotext, sizeof infotext, "(Slideshow-delay: %d ms)", new_delay_ms);
-            update_win_title_to_nonload(q);
             update_image(q, STATUSBAR);
             break;
 

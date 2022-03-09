@@ -461,7 +461,6 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
     }
     infotext[sizeof(infotext) - 1] = '\0';
     *numlines = 0;
-    update_win_title_to_nonload(q);
   }
 
   /* If image modified reload, otherwise redraw */
@@ -971,3 +970,15 @@ get_preferred_xinerama_screens(void)
     XCloseDisplay(dpy);
 }
 #endif
+
+void qiv_layout_set_text_with_infotext(qiv_image *q, gboolean is_title) {
+  char *p = q->win_title_no_infotext, *r = p + strlen(p);
+  strncpy(r, infotext, sizeof(q->win_title_no_infotext) - 1 - (r - p));
+  p[sizeof(q->win_title_no_infotext) - 1] = '\0';
+  if (is_title) {
+    gdk_window_set_title(q->win, p);
+  } else {
+    pango_layout_set_text(layout, p, -1);
+  }
+  *r = '\0';  /* Remove the infotext appended above. */
+}

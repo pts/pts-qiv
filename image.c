@@ -921,19 +921,20 @@ static void update_win_title(qiv_image *q, const char *image_name, double elapse
                    (q->has_thumbnail ? "-" : "%") :
                    thumbnail && !maxpect ? "+" : "");
   }
-  g_snprintf(q->win_title, sizeof q->win_title,
-             "qiv: %s %s %s%d%% [%d/%d] b%d/c%d/g%d %s",
+  g_snprintf(q->win_title_no_infotext, sizeof q->win_title_no_infotext,
+             "qiv: %s %s %s%d%% [%d/%d] b%d/c%d/g%d ",
              image_name, dimen_msg, elapsed_msg,
              myround((1.0-(q->orig_w - q->win_w)/(double)q->orig_w)*100), image_idx+1, images,
-             q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32, infotext);
+             q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32);
 }
 
 static void update_image_on_error(qiv_image *q) {
   int i;
 
   if (!q->error) return;  /* Unexpected. */
-  g_snprintf(q->win_title, sizeof q->win_title,
+  g_snprintf(q->win_title_no_infotext, sizeof q->win_title_no_infotext,
       "qiv: ERROR! cannot load image: %s", image_names[image_idx]);
+  *infotext = '\0';
   gdk_beep();
 
   /* take this image out of the file list */
@@ -996,10 +997,6 @@ static void draw_image_or_background(qiv_image *q, gint x, gint y, gint w, gint 
   }
 }
 
-void update_win_title_to_nonload(qiv_image *q) {
-  update_win_title(q, image_names[image_idx], NAN);
-}
-
 /* Something changed the image. Redraw it. Don't (always) flush. */
 void update_image_noflush(qiv_image *q, int mode) {
   GdkPixmap * m = NULL;
@@ -1019,7 +1016,7 @@ void update_image_noflush(qiv_image *q, int mode) {
       setup_imlib_color_modifier(q->mod);
 
     if (mode == MOVED || mode == STATUSBAR) {
-      if (mode == MOVED) update_win_title_to_nonload(q);
+      if (mode == MOVED) update_win_title(q, image_names[image_idx], NAN);
       if (transparency && used_masks_before) {
         /* there should be a faster way to update the mask, but how? */
 	if (q->p)
@@ -1060,7 +1057,7 @@ void update_image_noflush(qiv_image *q, int mode) {
     }
   }
 
-  gdk_window_set_title(q->win, q->win_title);
+  qiv_layout_set_text_with_infotext(q, TRUE);
 
   q->text_w = q->text_h = 0;
 
@@ -1103,7 +1100,7 @@ void update_image_noflush(qiv_image *q, int mode) {
   {
     if (statusbar_fullscreen) {
       /* Will display q->win_title in the statusbar. */
-      pango_layout_set_text(layout, q->win_title, -1);
+      qiv_layout_set_text_with_infotext(q, FALSE);
       /* Call early to initialize q->text_w and q->text_h. */
       pango_layout_get_pixel_size(layout, &(q->text_w), &(q->text_h));
     }
