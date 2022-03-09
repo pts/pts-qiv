@@ -52,6 +52,7 @@ gboolean do_omit_load_stat; /* omit the stat(2) system call at load_image time, 
 gboolean do_enter_command; /* run qiv-command :enter on <Enter> */
 gboolean do_f_commands; /* run qiv-command :f1 etc on <F1> etc. */
 gboolean do_tag_error_pos; /* Move the cursor to tag error reported by qiv-command. */
+gboolean do_copy_link;  /* Create a hard link if possible when copying to .qiv-select */
 gboolean disable_grab; /* disable keyboard/mouse grabbing in fullscreen mode */
 int	max_rand_num; /* the largest random number range we will ask for */
 int	fixed_window_size = 0; /* window width fixed size/off */

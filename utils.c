@@ -131,7 +131,7 @@ int copy2select()
   const char *ptr, *filename = image_names[image_idx];
   char dstfile[FILENAME_LEN], dstfilebak[FILENAME_LEN], buf[BUFSIZ];
   int fdi, fdo, n;
-  struct stat st;
+  struct stat st, st2;
   int errno1;
   const char *select_dir1 = lstrip_dotslash(select_dir);
   const char *filename1 = lstrip_dotslash(filename);
@@ -166,13 +166,20 @@ int copy2select()
 
   /* Exactly the same file, no need to copy. */
   if (0 == strcmp(filename1, dstfile)) return 0;
+  if (0 != stat(filename1, &st)) {
+    g_print("*** Error: source file does not exist\a: %s\n", filename1);
+    return -1;
+  }
 
   /* If the file already exists, add as many .bak extensions as needed. */
-  if (stat(dstfile, &st) == 0) {
-    unsigned c = 1;
+  if (stat(dstfile, &st2) == 0) {
+    unsigned c;
     char tmp[sizeof(c) * 3 + 2], *p, *q;
-    size_t len = strlen(dstfile), extlen, tmplen;
-    sprintf(tmp, "-%u", c);
+    size_t len, extlen, tmplen;
+    /* If source and destination are the same file, then there is no need to copy. */
+    if (do_copy_link && st2.st_dev == st.st_dev && st2.st_ino == st.st_ino) return 0;
+    sprintf(tmp, "-%u", c = 1);
+    len = strlen(dstfile);
     tmplen = strlen(tmp);
     if (len + tmplen >= sizeof(dstfilebak)) { too_long:
       g_print("*** Error: destination filename too long\a: %s\n", dstfile);
@@ -186,7 +193,9 @@ int copy2select()
     memcpy(dstfilebak, dstfile, len - extlen);
     memcpy(q = dstfilebak + (len - extlen), tmp, tmplen);
     memcpy(q + tmplen, p, extlen + 1);  /* +1 for trailing '\0'. */
-    while (stat(dstfilebak, &st) == 0) {
+    while (stat(dstfilebak, &st2) == 0) {
+      /* If source and destination are the same file, then there is no need to copy. */
+      if (do_copy_link && st2.st_dev == st.st_dev && st2.st_ino == st.st_ino) return 0;
       /* Will rename foo.jpg to foo-2.jpg etc. */
       sprintf(tmp, "-%u", ++c);
       tmplen = strlen(tmp);
@@ -204,6 +213,7 @@ int copy2select()
     }
   }
 
+  if (do_copy_link && 0 == link(filename1, dstfile)) return 0;
   fdi = open(filename1, O_RDONLY);
   fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY | O_TRUNC, 0666) : -1;
   if (fdo == -1) {
@@ -609,6 +619,7 @@ void show_help(char *name, int exit_status)
           "    --do_grab, -a          Grab the pointer in windowed mode\n"
           "    --do_omit_load_stat    Don't call stat at image load, don't track changes\n"
           "    --do_tag_error_pos     Move the cursor to tag error reported by qiv-command\n"
+          "    --do_copy_link         Create a hard link if possible when copying to .qiv-select\n"
           "    --disable_grab, -G     Disable pointer/kbd grab in fullscreen mode\n"
           "    --fixed_width, -w x    Window with fixed width x\n"
           "    --fixed_zoom, -W x     Window with fixed zoom factor (percentage x)\n"

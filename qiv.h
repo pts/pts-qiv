@@ -148,6 +148,8 @@ extern gboolean do_grab;
 extern gboolean do_omit_load_stat;
 #define QIV_FLAG_DO_TAG_ERROR_POS 304
 extern gboolean do_tag_error_pos;
+#define QIV_FLAG_DO_COPY_LINK 305
+extern gboolean do_copy_link;
 extern gboolean disable_grab;
 extern int     max_rand_num;
 extern int     fixed_window_size;
