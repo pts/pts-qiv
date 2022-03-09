@@ -117,30 +117,40 @@ int move2trash()
   return 0;
 }
 
+/* Returns substring of s with runs of ./ removed from the beginning. */
+const char *lstrip_dotslash(const char *s) {
+  while (s[0] == '.' && s[1] == '/') {  /* G_PATH_SEPARATOR */
+    for (s += 2; s[0] == '/'; ++s) {}
+  }
+  return s;
+}
+
 /* copy current image to SELECTDIR */
 int copy2select()
 {
-  char *ptr, *filename = image_names[image_idx];
+  const char *ptr, *filename = image_names[image_idx];
   char dstfile[FILENAME_LEN], dstfilebak[FILENAME_LEN], tmp[FILENAME_LEN], buf[BUFSIZ];
   int fdi, fdo, n, n2;
   struct stat st;
   int errno1;
+  const char *select_dir1 = lstrip_dotslash(select_dir);
+  const char *filename1 = lstrip_dotslash(filename);
 
   /* try to create something; if select_dir doesn't exist, create one */
-  if (0 != stat(select_dir, &st)) {
-    if (mkdir(select_dir, 0777) != 0 && (errno1 = errno, TRUE) && (stat(select_dir, &st) != 0 || !S_ISDIR(st.st_mode))) {
-      g_print("*** Error: Cannot create select_dir\a '%s': %s\n", select_dir, strerror(errno1));
+  if (0 != stat(select_dir1, &st)) {
+    if (mkdir(select_dir1, 0777) != 0 && (errno1 = errno, TRUE) && (stat(select_dir1, &st) != 0 || !S_ISDIR(st.st_mode))) {
+      g_print("*** Error: Cannot create select_dir\a '%s': %s\n", select_dir1, strerror(errno1));
       return -1;
     }
   } else if (!S_ISDIR(st.st_mode)) {
-    g_print("*** Error: select_dir is not a directory\a: %s\n", select_dir);
+    g_print("*** Error: select_dir is not a directory\a: %s\n", select_dir1);
     return -1;
   }
 
-  if((ptr = strrchr(filename, '/')) != NULL) {   /* search rightmost slash */
+  if((ptr = strrchr(filename1, '/')) != NULL) {   /* search rightmost slash */
     ptr++;
   } else {
-    ptr = filename;
+    ptr = filename1;
   }
   snprintf(dstfile, sizeof dstfile, "%s/%s", select_dir, ptr);
 
@@ -148,6 +158,11 @@ int copy2select()
   g_print("*** selectfile: '%s'\n",dstfile);
 #endif
   ptr = dstfile;
+
+#ifdef DEBUG
+  fprintf(stderr, "copy from=(%s)\n", filename1);
+  fprintf(stderr, "copy   to=(%s)\n", dstfile);
+#endif
 
   /* Just in case the file already exists... */
   /* unlink(dstfile); */
@@ -164,7 +179,7 @@ int copy2select()
     rename(dstfile, dstfilebak);
   }
 
-  fdi = open(filename, O_RDONLY);
+  fdi = open(filename1, O_RDONLY);
   fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY, 0666) : -1;
   if (fdo == -1) {
     g_print("*** Error: Could not copy file: '%s'\a\n", strerror(errno));
