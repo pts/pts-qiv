@@ -219,8 +219,21 @@ int copy2select()
   fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY | O_TRUNC, 0666) : -1;
   if (fdo == -1) {
     g_print("*** Error: Could not copy file: '%s'\n", strerror(errno));
+   error_close:
+    close(fdo);
+    close(fdi);
+    return -1;
   } else {
-    while((n = read(fdi, buf, BUFSIZ)) > 0) (void)!write(fdo, buf, n);
+    while ((n = read(fdi, buf, BUFSIZ)) > 0) {
+      if (write(fdo, buf, n) != n) {
+        g_print("*** Error: Error writing to file: '%s'\n", dstfile);
+        goto error_close;
+      }
+    }
+    if (n < 0) {
+      g_print("*** Error: Error reading from file: '%s'\n", filename1);
+      goto error_close;
+    }
   }
   close(fdo);
   close(fdi);
