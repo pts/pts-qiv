@@ -1290,12 +1290,15 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* Copy image to selected directory */
 
           case 'a':
-            if (copy2select() == 0)
+            if (copy2select() == 0) {
               snprintf(infotext, sizeof infotext, "(Last image copied)");
-            else
-              snprintf(infotext, sizeof infotext, "(Selection FAILED)");
-            next_image(1);
-            qiv_load_image(q);
+              next_image(1);
+              qiv_load_image(q);
+            } else {
+              snprintf(infotext, sizeof infotext, "(Copy failed!)");
+              update_win_title_to_nonload(q);
+              update_image(q, STATUSBAR);
+            }
             break;
 
             /* Jump to image */
