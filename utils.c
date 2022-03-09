@@ -292,6 +292,7 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
   int i;
   struct stat before, after;
   char tab_mode_extra[2 + 3 * sizeof(int)];
+  gboolean do_stat = TRUE;
 
   stat(filename, &before);
   if (tab_mode != 0) {
@@ -397,17 +398,22 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
 
   /* Move marked single-line output to infotext (lower right corner). */
   if (*numlines == 1 && lines[0][0] == '\007') {
-    strncpy(infotext, lines[0] + 1, sizeof(infotext) - 1);
+    if (lines[0][1] == '\007') {
+      strncpy(infotext, lines[0] + 2, sizeof(infotext) - 1);
+      do_stat = FALSE;  /* Don't reload the image (qiv_load_image). */
+    } else {
+      strncpy(infotext, lines[0] + 1, sizeof(infotext) - 1);
+    }
     infotext[sizeof(infotext) - 1] = '\0';
     *numlines = 0;
     update_win_title_to_nonload(q);
   }
 
   /* If image modified reload, otherwise redraw */
-  if (stat(filename, &after) == 0 &&
+  if (!do_stat || (stat(filename, &after) == 0 &&
       before.st_size == after.st_size &&
       before.st_ctime == after.st_ctime &&
-      before.st_mtime == after.st_mtime)
+      before.st_mtime == after.st_mtime))
     update_image(q, STATUSBAR);
   else
     qiv_load_image(q);
