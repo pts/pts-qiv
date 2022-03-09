@@ -129,8 +129,8 @@ const char *lstrip_dotslash(const char *s) {
 int copy2select()
 {
   const char *ptr, *filename = image_names[image_idx];
-  char dstfile[FILENAME_LEN], dstfilebak[FILENAME_LEN], tmp[FILENAME_LEN], buf[BUFSIZ];
-  int fdi, fdo, n, n2;
+  char dstfile[FILENAME_LEN], dstfilebak[FILENAME_LEN], buf[BUFSIZ];
+  int fdi, fdo, n;
   struct stat st;
   int errno1;
   const char *select_dir1 = lstrip_dotslash(select_dir);
@@ -167,23 +167,33 @@ int copy2select()
   /* Exactly the same file, no need to copy. */
   if (0 == strcmp(filename1, dstfile)) return 0;
 
-  /* Just in case the file already exists... */
+  /* If the file already exists, add as many .bak extensions as needed. */
   /* unlink(dstfile); */
-  snprintf(dstfilebak, sizeof dstfilebak, "%s", dstfile);
-  while ((n2 = open(dstfilebak, O_RDONLY)) != -1) {
-    close(n2);
-    snprintf(tmp, sizeof dstfilebak, "%s.bak", dstfilebak);
-    strncpy(dstfilebak, tmp, sizeof dstfilebak);
-  }
-  if ( strncmp(dstfile, dstfilebak, sizeof dstfile) != 0 ) {
+  if (stat(dstfile, &st) == 0) {
+    size_t len = strlen(dstfile);
+    if (len + 5 > sizeof(dstfilebak)) { too_long:
+      g_print("*** Error: destination filename too long\a: %s\n", dstfile);
+      return -1;
+    }
+    memcpy(dstfilebak, dstfile, len);
+    for (;;) {
+      memcpy(dstfilebak + len, ".bak", 5);
+      len += 4;
+      if (stat(dstfilebak, &st) != 0) break;
+      if (len + 5 > sizeof(dstfilebak)) goto too_long;
+    }
 #ifdef DEBUG
-    g_print("*** renaming: '%s' to '%s'\n",dstfile,dstfilebak);
+    g_print("*** renaming: '%s' to '%s'\n", dstfile, dstfilebak);
 #endif
-    rename(dstfile, dstfilebak);
+    /* FYI There is a race condition between the stat(...) above and the rename(...) below. */
+    if (rename(dstfile, dstfilebak) != 0) {
+      g_print("*** error renaming\a: '%s' to '%s': %s\n", dstfile, dstfilebak, strerror(errno));
+      return -1;
+    }
   }
 
   fdi = open(filename1, O_RDONLY);
-  fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY, 0666) : -1;
+  fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY | O_TRUNC, 0666) : -1;
   if (fdo == -1) {
     g_print("*** Error: Could not copy file: '%s'\a\n", strerror(errno));
   } else {
