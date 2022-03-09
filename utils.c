@@ -336,6 +336,8 @@ static void ensure_utf8_locale(void) {
 #define MAXOUTPUTBUFFER 65536
 #define MAXLINES 1024
 
+static char run_command_infotext[BUF_LEN];
+
 /* run a command ... */
 void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int *numlines, const char ***output)
 {
@@ -364,7 +366,8 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
 
   /* TODO(pts): Escape ' as '\'' in n and filename here. */
   /* Don't show this infotext until to command has succeeded, to prevent some infotext flickering. */
-  snprintf(infotext, sizeof infotext, "Run: qiv-command '%s' '%s'%s", n, filename, tab_mode_extra);
+  snprintf(run_command_infotext, sizeof run_command_infotext, "Run: qiv-command '%s' '%s'%s", n, filename, tab_mode_extra);
+  q->infotext = run_command_infotext;
 
   /* Use some pipes for stdout and stderr */
 
@@ -454,12 +457,11 @@ void run_command(qiv_image *q, const char *n, int tab_mode, char *filename, int 
   /* Move marked single-line output to infotext (lower right corner). */
   if (*numlines == 1 && lines[0][0] == '\007') {
     if (lines[0][1] == '\007') {
-      strncpy(infotext, lines[0] + 2, sizeof(infotext) - 1);
+      q->infotext = lines[0] + 2;
       do_stat = FALSE;  /* Don't reload the image (qiv_load_image). */
     } else {
-      strncpy(infotext, lines[0] + 1, sizeof(infotext) - 1);
+      q->infotext = lines[0] + 1;
     }
-    infotext[sizeof(infotext) - 1] = '\0';
     *numlines = 0;
   }
 
@@ -971,10 +973,12 @@ get_preferred_xinerama_screens(void)
 }
 #endif
 
-void qiv_layout_set_text_with_infotext(qiv_image *q, gboolean is_title) {
+void qiv_render_title(qiv_image *q, gboolean is_title) {
   char *p = q->win_title_no_infotext, *r = p + strlen(p);
-  strncpy(r, infotext, sizeof(q->win_title_no_infotext) - 1 - (r - p));
-  p[sizeof(q->win_title_no_infotext) - 1] = '\0';
+  if (q->infotext) {
+    strncpy(r, q->infotext, sizeof(q->win_title_no_infotext) - 1 - (r - p));
+    p[sizeof(q->win_title_no_infotext) - 1] = '\0';
+  }
   if (is_title) {
     gdk_window_set_title(q->win, p);
   } else {

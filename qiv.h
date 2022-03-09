@@ -73,7 +73,7 @@ typedef struct _qiv_image {
   gboolean is_updated;        /* was update_image called? */
   double drag_start_x, drag_start_y; /* position of cursor at drag start */
   int drag_win_x, drag_win_y; /* position of win at drag start */
-//  char        infotext[BUF_LEN];
+  const char *infotext;  /* Points to a string constant or global buffer. */
   gchar win_title_no_infotext[BUF_LEN];
   double elapsed;  /* number of seconds the last image load took */
   gint text_w, text_h;
@@ -97,7 +97,6 @@ typedef struct _qiv_deletedfile {
 } qiv_deletedfile;
 
 extern int              first;
-extern char             infotext[BUF_LEN];
 extern GMainLoop        *qiv_main_loop;
 extern gint             screen_x, screen_y;
 extern GdkFont          *text_font;
@@ -241,4 +240,4 @@ extern gboolean qiv_watch_file (gpointer);
 extern int rreaddir(const char *, int);
 extern int rreadfile(const char *);
 extern int find_image(int images, char **image_names, char *name);
-extern void qiv_layout_set_text_with_infotext(qiv_image *q, gboolean is_title);
+extern void qiv_render_title(qiv_image *q, gboolean is_title);

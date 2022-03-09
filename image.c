@@ -70,13 +70,13 @@ enum Orientation {
 void transform( qiv_image *q, enum Orientation orientation) {
     switch (orientation) {
      default: return;
-     case HFLIP:     flipH(q); snprintf(infotext, sizeof infotext, "(Flipped horizontally)"); break;
-     case VFLIP:     flipV(q); snprintf(infotext, sizeof infotext, "(Flipped vertically)"); break;
-     case ROT_180:   rot180(q); snprintf(infotext, sizeof infotext, "(Turned upside down)"); break;
-      case TRANSPOSE: transpose(q); swapWH(q); snprintf(infotext, sizeof infotext, "(Transposed)"); break;
-     case ROT_90:    rot90(q); swapWH(q); snprintf(infotext, sizeof infotext, "(Rotated left)"); break;
-     case TRANSVERSE: transpose(q); rot180(q); swapWH(q); snprintf(infotext, sizeof infotext, "(Transversed)"); break;
-     case ROT_270:   rot270(q); swapWH(q); snprintf(infotext, sizeof infotext, "(Rotated left)"); break;
+     case HFLIP:     flipH(q); q->infotext = ("(Flipped horizontally)"); break;
+     case VFLIP:     flipV(q); q->infotext = ("(Flipped vertically)"); break;
+     case ROT_180:   rot180(q); q->infotext = ("(Turned upside down)"); break;
+      case TRANSPOSE: transpose(q); swapWH(q); q->infotext = ("(Transposed)"); break;
+     case ROT_90:    rot90(q); swapWH(q); q->infotext = ("(Rotated left)"); break;
+     case TRANSVERSE: transpose(q); rot180(q); swapWH(q); q->infotext = ("(Transversed)"); break;
+     case ROT_270:   rot270(q); swapWH(q); q->infotext = ("(Rotated left)"); break;
     }
 }
 
@@ -817,7 +817,7 @@ void zoom_out(qiv_image *q)
       correct_image_position(q);
     }
   } else {
-    snprintf(infotext, sizeof infotext, "(Cannot zoom out anymore)");
+    q->infotext = ("(Cannot zoom out anymore)");
     fprintf(stderr, "qiv: cannot zoom out anymore\n");
   }
 }
@@ -934,7 +934,7 @@ static void update_image_on_error(qiv_image *q) {
   if (!q->error) return;  /* Unexpected. */
   g_snprintf(q->win_title_no_infotext, sizeof q->win_title_no_infotext,
       "qiv: ERROR! cannot load image: %s", image_names[image_idx]);
-  *infotext = '\0';
+  q->infotext = NULL;
   gdk_beep();
 
   /* take this image out of the file list */
@@ -1058,7 +1058,7 @@ void update_image_noflush(qiv_image *q, int mode) {
     }
   }
 
-  qiv_layout_set_text_with_infotext(q, TRUE);
+  qiv_render_title(q, TRUE);
 
   q->text_w = q->text_h = 0;
 
@@ -1101,7 +1101,7 @@ void update_image_noflush(qiv_image *q, int mode) {
   {
     if (statusbar_fullscreen) {
       /* Will display q->win_title in the statusbar. */
-      qiv_layout_set_text_with_infotext(q, FALSE);
+      qiv_render_title(q, FALSE);
       /* Call early to initialize q->text_w and q->text_h. */
       pango_layout_get_pixel_size(layout, &(q->text_w), &(q->text_h));
     }

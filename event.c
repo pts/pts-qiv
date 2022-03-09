@@ -107,7 +107,7 @@ static void qiv_drag_image(qiv_image *q, int move_to_x, int move_to_y)
   }
 
   update_image(q, MOVED);
-  snprintf(infotext, sizeof infotext, "(-)");
+  q->infotext = ("(-)");
 }
 
 static void qiv_hide_multiline_window(qiv_image *q) {
@@ -122,6 +122,7 @@ static void qiv_hide_multiline_window(qiv_image *q) {
   mws.is_displayed = mws.is_clean = FALSE;
 }
 
+/* infotextdisplay is globally owned. */
 static void qiv_display_multiline_window(qiv_image *q, const char *infotextdisplay,
                                          const char *strs[], int curpos, const char *continue_msg) {
   int temp, text_w = 0, text_h, curpos_w, i, maxlines;
@@ -171,10 +172,9 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   mws2.is_displayed = mws2.is_clean = TRUE;
 
   if (infotextdisplay) {
-    has_infotext_changed = strncmp(infotext, infotextdisplay, sizeof(infotext) - 1) != 0;
+    has_infotext_changed = strcmp(q->infotext, infotextdisplay) != 0;
     if (has_infotext_changed) {
-      strncpy(infotext, infotextdisplay, sizeof(infotext) - 1);
-      infotext[sizeof(infotext) - 1] = '\0';
+      q->infotext = infotextdisplay;
     }
   } else {
     has_infotext_changed = FALSE;
@@ -455,6 +455,9 @@ static int find_tag_error_pos(const char *strs[]) {
 #define MMIN(a, b) ((a) < (b) ? (a) : (b))
 #define MMAX(a, b) ((a) > (b) ? (a) : (b))
 
+static char infotext_xinerama[32 + sizeof(int) * 3];
+static char infotext_slideshow_delay[32 + sizeof(int) * 3];
+
 void qiv_handle_event(GdkEvent *ev, gpointer data)
 {
   gboolean do_make_multiline_window_unclean = TRUE;
@@ -572,7 +575,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                            MAX(3,q->win_w-q->text_w-9), MAX(3,q->win_h-q->text_h-9),
                            q->text_w+4, q->text_h+4);
 
-        qiv_layout_set_text_with_infotext(q, FALSE);
+        qiv_render_title(q, FALSE);
         pango_layout_get_pixel_size (layout, &(q->text_w), &(q->text_h));
         gdk_draw_layout (q->win, q->text_gc, MAX(5,q->win_w-q->text_w-7),  MAX(5,q->win_h-7-q->text_h), layout);
       }
@@ -609,7 +612,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           GdkEvent *e;
           qiv_disable_mouse_events(q);
           qiv_drag_image(q, q->drag_win_x + move_x, q->drag_win_y + move_y);
-          snprintf(infotext, sizeof infotext, "(Drag)");
+          q->infotext = ("(Drag)");
           /* el cheapo mouse motion compression */
           while (gdk_events_pending()) {
             e = gdk_event_get();
@@ -655,7 +658,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
             if (q->drag > 1) {
               qiv_drag_image(q, q->drag_win_x + move_x, q->drag_win_y + move_y);
-              snprintf(infotext, sizeof infotext, "(Drag)");
+              q->infotext = ("(Drag)");
               q->drag = 0;
               break;
             }
@@ -824,8 +827,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'e':
             exit_slideshow = FALSE;
             center ^= 1;
-            snprintf(infotext, sizeof infotext, center ?
-                     "(Centering: on)" : "(Centering: off)");
+            q->infotext = center ? "(Centering: on)" : "(Centering: off)";
             if (center) center_image(q);
             update_image(q, MOVED);
             break;
@@ -835,8 +837,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'p':
             exit_slideshow = FALSE;
             transparency ^= 1;
-            snprintf(infotext, sizeof infotext, transparency ?
-                     "(Transparency: on)" : "(Transparency: off)");
+            q->infotext = transparency ? "(Transparency: on)" : "(Transparency: off)";
             q->win_ow = q->win_oh = -1;  /* Force full (and flickering) q->win redraw below. */
             update_image(q, REDRAW);
             break;
@@ -846,8 +847,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'm':
             scale_down = 0;
             maxpect ^= 1;
-            snprintf(infotext, sizeof infotext, maxpect ?
-                     "(Maxpect: on)" : "(Maxpect: off)");
+            q->infotext = maxpect ? "(Maxpect: on)" : "(Maxpect: off)";
             zoom_factor = maxpect ? 0 : fixed_zoom_factor; /* reset zoom */
             if (q->has_thumbnail) {
               if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
@@ -862,8 +862,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'r':
             random_order ^= 1;
-            snprintf(infotext, sizeof infotext, random_order ?
-                     "(Random order: on)" : "(Random order: off)");
+            q->infotext = random_order ?"(Random order: on)" : "(Random order: off)";
             update_image(q, REDRAW);
             break;
 
@@ -889,12 +888,10 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             exit_slideshow = FALSE;
             if (fullscreen) {
               statusbar_fullscreen ^= 1;
-              snprintf(infotext, sizeof infotext, statusbar_fullscreen ?
-                       "(Statusbar: on)" : "(Statusbar: off)");
+              q->infotext = statusbar_fullscreen ? "(Statusbar: on)" : "(Statusbar: off)";
             } else {
               statusbar_window ^= 1;
-              snprintf(infotext, sizeof infotext, statusbar_window ?
-                       "(Statusbar: on)" : "(Statusbar: off)");
+              q->infotext = statusbar_window ? "(Statusbar: on)" : "(Statusbar: off)";
             }
             update_image(q, STATUSBAR);
             break;
@@ -904,8 +901,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 's':
             exit_slideshow = FALSE;
             slide ^= 1;
-            snprintf(infotext, sizeof infotext, slide ?
-                     "(Slideshow: on)" : "(Slideshow: off)");
+            q->infotext = slide ? "(Slideshow: on)" : "(Slideshow: off)";
             update_image(q, STATUSBAR);
             break;
 
@@ -931,9 +927,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_x > 0)
                     q->win_x = 0;
-                  snprintf(infotext, sizeof infotext, "(Moving right)");
+                  q->infotext = ("(Moving right)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further to the right)");
+                  q->infotext = ("(Cannot move further to the right)");
                 }
 
               } else {                      /* user is just playing around */
@@ -944,13 +940,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_x + q->win_w > screen_x)
                     q->win_x = screen_x - q->win_w;
-                  snprintf(infotext, sizeof infotext, "(Moving right)");
+                  q->infotext = ("(Moving right)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further to the right)");
+                  q->infotext = ("(Cannot move further to the right)");
                 }
               }
             } else {
-              snprintf(infotext, sizeof infotext, "(Moving works only in fullscreen mode)");
+              q->infotext = ("(Moving works only in fullscreen mode)");
               fprintf(stdout, "qiv: Moving works only in fullscreen mode\n");
             }
             update_image(q, MOVED);
@@ -978,9 +974,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_x + q->win_w < screen_x)
                     q->win_x = screen_x - q->win_w;
-                  snprintf(infotext, sizeof infotext, "(Moving left)");
+                  q->infotext = ("(Moving left)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further to the left)");
+                  q->infotext = ("(Cannot move further to the left)");
                 }
 
               } else {                      /* user is just playing around */
@@ -991,13 +987,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_x < 0)
                     q->win_x = 0;
-                  snprintf(infotext, sizeof infotext, "(Moving left)");
+                  q->infotext = ("(Moving left)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further to the left)");
+                  q->infotext = ("(Cannot move further to the left)");
                 }
               }
             } else {
-              snprintf(infotext, sizeof infotext, "(Moving works only in fullscreen mode)");
+              q->infotext = ("(Moving works only in fullscreen mode)");
               fprintf(stdout, "qiv: Moving works only in fullscreen mode\n");
             }
             update_image(q, MOVED);
@@ -1025,9 +1021,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_y + q->win_h < screen_y)
                     q->win_y = screen_y - q->win_h;
-                  snprintf(infotext, sizeof infotext, "(Moving up)");
+                  q->infotext = ("(Moving up)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further up)");
+                  q->infotext = ("(Cannot move further up)");
                 }
 
               } else {                      /* user is just playing around */
@@ -1038,13 +1034,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_y < 0)
                     q->win_y = 0;
-                  snprintf(infotext, sizeof infotext, "(Moving up)");
+                  q->infotext = ("(Moving up)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further up)");
+                  q->infotext = ("(Cannot move further up)");
                 }
               }
             } else {
-              snprintf(infotext, sizeof infotext, "(Moving works only in fullscreen mode)");
+              q->infotext = ("(Moving works only in fullscreen mode)");
               fprintf(stdout, "qiv: Moving works only in fullscreen mode\n");
             }
             update_image(q, MOVED);
@@ -1072,9 +1068,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_y > 0)
                     q->win_y = 0;
-                  snprintf(infotext, sizeof infotext, "(Moving down)");
+                  q->infotext = ("(Moving down)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further down)");
+                  q->infotext = ("(Cannot move further down)");
                 }
 
               } else {                      /* user is just playing around */
@@ -1085,13 +1081,13 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
                   /* sanity check */
                   if (q->win_y + q->win_h > screen_y)
                     q->win_y = screen_y - q->win_h;
-                  snprintf(infotext, sizeof infotext, "(Moving down)");
+                  q->infotext = ("(Moving down)");
                 } else {
-                  snprintf(infotext, sizeof infotext, "(Cannot move further down)");
+                  q->infotext = ("(Cannot move further down)");
                 }
               }
             } else {
-              snprintf(infotext, sizeof infotext, "(Moving works only in fullscreen mode)");
+              q->infotext = ("(Moving works only in fullscreen mode)");
               fprintf(stdout, "qiv: Moving works only in fullscreen mode\n");
             }
             update_image(q, MOVED);
@@ -1102,7 +1098,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 't':
             maxpect = 0;
             scale_down ^= 1;
-            snprintf(infotext, sizeof infotext, scale_down ?
+            q->infotext = (scale_down ?
                      "(Scale down: on)" : "(Scale down: off)");
             zoom_factor = maxpect ? 0 : fixed_zoom_factor;  /* reset zoom */
             check_size(q, TRUE);
@@ -1114,7 +1110,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case GDK_KP_Add:
           case '+':
           case '=':
-            snprintf(infotext, sizeof infotext, "(Zoomed in)");
+            q->infotext = ("(Zoomed in)");
             zoom_in(q);
             update_image(q, ZOOMED);
             break;
@@ -1123,7 +1119,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case GDK_KP_Subtract:
           case '-':
-            snprintf(infotext, sizeof infotext, "(Zoomed out)");
+            q->infotext = ("(Zoomed out)");
             zoom_out(q);
             update_image(q, ZOOMED);
             break;
@@ -1136,7 +1132,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               /* This may reload the image. */
               run_command_str(q, ":enter");
             } else {
-              snprintf(infotext, sizeof infotext, "(Reset size)");
+              q->infotext = ("(Reset size)");
               reload_image(q);
               zoom_factor = fixed_zoom_factor;  /* reset zoom */
               check_size(q, TRUE);
@@ -1151,14 +1147,14 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             if (slide) {
               set_image_direction(1);
              abort_slideshow:
-              snprintf(infotext, sizeof infotext, "(Slideshow aborted)");
+              q->infotext = ("(Slideshow aborted)");
               update_image(q, STATUSBAR);
               break;
             } else if  (ev->key.state & GDK_CONTROL_MASK) {
-              snprintf(infotext, sizeof infotext, "(Next picture directory)");
+              q->infotext = ("(Next picture directory)");
               next_image_dir(1);
             } else {
-              snprintf(infotext, sizeof infotext, "(Next picture)");
+              q->infotext = ("(Next picture)");
               next_image(1);
             }
             if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
@@ -1169,7 +1165,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case GDK_Page_Down:
           case GDK_KP_Page_Down:
-            snprintf(infotext, sizeof infotext, "(5 pictures forward)");
+            q->infotext = ("(5 pictures forward)");
             next_image(5);
             if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
             qiv_load_image(q);
@@ -1183,10 +1179,10 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               set_image_direction(-1);
               goto abort_slideshow;
             } else if  (ev->key.state & GDK_CONTROL_MASK) {
-              snprintf(infotext, sizeof infotext, "(Previous picture directory)");
+              q->infotext = ("(Previous picture directory)");
               next_image_dir(-1);
             } else {
-              snprintf(infotext, sizeof infotext, "(Previous picture)");
+              q->infotext = ("(Previous picture)");
               next_image(-1);
             }
             if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
@@ -1197,7 +1193,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case GDK_Page_Up:
           case GDK_KP_Page_Up:
-            snprintf(infotext, sizeof infotext, "(5 pictures backward)");
+            q->infotext = ("(5 pictures backward)");
             next_image(-5);
             if(magnify && !fullscreen)    gdk_window_hide(magnify_img.win); // [lc]
             qiv_load_image(q);
@@ -1206,7 +1202,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* + brightness */
 
           case 'B':
-            snprintf(infotext, sizeof infotext, "(More brightness)");
+            q->infotext = ("(More brightness)");
             q->mod.brightness += 8;
             update_image(q, REDRAW);
             break;
@@ -1214,7 +1210,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* - brightness */
 
           case 'b':
-            snprintf(infotext, sizeof infotext, "(Less brightness)");
+            q->infotext = ("(Less brightness)");
             q->mod.brightness -= 8;
             update_image(q, REDRAW);
             break;
@@ -1222,7 +1218,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* + contrast */
 
           case 'C':
-            snprintf(infotext, sizeof infotext, "(More contrast)");
+            q->infotext = ("(More contrast)");
             q->mod.contrast += 8;
             update_image(q, REDRAW);
             break;
@@ -1230,7 +1226,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* - contrast */
 
           case 'c':
-            snprintf(infotext, sizeof infotext, "(Less contrast)");
+            q->infotext = ("(Less contrast)");
             q->mod.contrast -= 8;
             update_image(q, REDRAW);
             break;
@@ -1238,7 +1234,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* + gamma */
 
           case 'G':
-            snprintf(infotext, sizeof infotext, "(More gamma)");
+            q->infotext = ("(More gamma)");
             q->mod.gamma += 8;
             update_image(q, REDRAW);
             break;
@@ -1246,7 +1242,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* - gamma */
 
           case 'g':
-            snprintf(infotext, sizeof infotext, "(Less gamma)");
+            q->infotext = ("(Less gamma)");
             q->mod.gamma -= 8;
             update_image(q, REDRAW);
             break;
@@ -1254,7 +1250,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             /* - reset brightness, contrast and gamma */
 
           case 'o':
-            snprintf(infotext, sizeof infotext, "(Reset bri/con/gam)");
+            q->infotext = ("(Reset bri/con/gam)");
             reset_mod(q);
             update_image(q, REDRAW);
             break;
@@ -1265,11 +1261,11 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'd':
             if (!readonly) {
               if (move2trash() == 0) {
-                snprintf(infotext, sizeof infotext, "(Deleted last image)");
+                q->infotext = ("(Deleted last image)");
                 qiv_load_image(q);
               } else {
                 gdk_beep();
-                snprintf(infotext, sizeof infotext, "(Delete failed!)");
+                q->infotext = ("(Delete failed!)");
                 update_image(q, STATUSBAR);
               }
             }
@@ -1280,11 +1276,11 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'u':
             if (!readonly) {
               if (undelete_image() == 0) {
-                snprintf(infotext, sizeof infotext, "(Undeleted)");
+                q->infotext = ("(Undeleted)");
                 qiv_load_image(q);
               } else {
                 gdk_beep();
-                snprintf(infotext, sizeof infotext, "(Undelete failed!)");
+                q->infotext = ("(Undelete failed!)");
                 update_image(q, STATUSBAR);
               }
             }
@@ -1294,12 +1290,12 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'a':
             if (copy2select() == 0) {
-              snprintf(infotext, sizeof infotext, "(Last image copied)");
+              q->infotext = ("(Last image copied)");
               next_image(1);
               qiv_load_image(q);
             } else {
               gdk_beep();
-              snprintf(infotext, sizeof infotext, "(Copy failed!)");
+              q->infotext = ("(Copy failed!)");
               update_image(q, STATUSBAR);
             }
             break;
@@ -1316,7 +1312,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'h':
             imlib_image_flip_horizontal();
-            snprintf(infotext, sizeof infotext, "(Flipped horizontally)");
+            q->infotext = ("(Flipped horizontally)");
             update_image(q, REDRAW);
             break;
 
@@ -1324,7 +1320,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'v':
             imlib_image_flip_vertical();
-            snprintf(infotext, sizeof infotext, "(Flipped vertically)");
+            q->infotext = ("(Flipped vertically)");
             update_image(q, REDRAW);
             break;
 
@@ -1332,7 +1328,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'w':
             watch_file ^= 1;
-            snprintf(infotext, sizeof infotext, watch_file ?
+            q->infotext = (watch_file ?
                      "(File watching: on)" : "(File watching: off)");
             update_image(q, REDRAW);
             if(watch_file){
@@ -1344,7 +1340,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'k':
             imlib_image_orientate(1);
-            snprintf(infotext, sizeof infotext, "(Rotated right)");
+            q->infotext = ("(Rotated right)");
             swap(&q->orig_w, &q->orig_h);
             swap(&q->win_w, &q->win_h);
             check_size(q, FALSE);
@@ -1356,7 +1352,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'l':
             imlib_image_orientate(3);
-            snprintf(infotext, sizeof infotext, "(Rotated left)");
+            q->infotext = ("(Rotated left)");
             swap(&q->orig_w, &q->orig_h);
             swap(&q->win_w, &q->win_h);
             check_size(q, FALSE);
@@ -1369,7 +1365,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'x':
             to_root=1;
             set_desktop_image(q);
-            snprintf(infotext, sizeof infotext, "(Centered image on background)");
+            q->infotext = ("(Centered image on background)");
             update_image(q, REDRAW);
             to_root=0;
             break;
@@ -1379,7 +1375,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'y':
             to_root_t=1;
             set_desktop_image(q);
-            snprintf(infotext, sizeof infotext, "(Tiled image on background)");
+            q->infotext = ("(Tiled image on background)");
             update_image(q, REDRAW);
             to_root_t=0;
             break;
@@ -1387,7 +1383,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case 'z':
             to_root_s=1;
             set_desktop_image(q);
-            snprintf(infotext, sizeof infotext, "(Stretched image on background)");
+            q->infotext = ("(Stretched image on background)");
             update_image(q, REDRAW);
             to_root_s=0;
             break;
@@ -1401,7 +1397,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
             new_delay_ms = add_to_delay(-1);
            after_change_delay:
             exit_slideshow = FALSE;
-            snprintf(infotext, sizeof infotext, "(Slideshow-delay: %d ms)", new_delay_ms);
+            snprintf(infotext_slideshow_delay, sizeof infotext_slideshow_delay,
+                     "(Slideshow-delay: %d ms)", new_delay_ms);
+            q->infotext = infotext_slideshow_delay;
             update_image(q, STATUSBAR);
             break;
 
@@ -1439,8 +1437,9 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               // g_print("user_screen = %d, number_xinerama_screens = %d\n", user_screen, number_xinerama_screens);
             }
             get_preferred_xinerama_screens();     // reselect appropriate screen
-            snprintf(infotext, sizeof infotext,
-                     "(xinerama screen: %i)", user_screen);
+            snprintf(infotext_xinerama, sizeof infotext_xinerama,
+                     "(xinerama screen: %d)", user_screen);
+            q->infotext = infotext_xinerama;
             if (center) center_image(q);
             update_image(q, REDRAW);
           break;
