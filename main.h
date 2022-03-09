@@ -46,13 +46,13 @@ int	to_root; /* display on root (centered) */
 int	to_root_t; /* display on root (tiled) */
 int	to_root_s; /* display on root (stretched) */
 int	transparency; /* transparency on/off */
-int     do_assume_files; /* Assume that all images (command line or list) are files, don't stat them. */
-int	do_grab; /* grab keboard/pointer (default off) */
-int     do_omit_load_stat; /* omit the stat(2) system call at load_image time, don't track changes to the file (current_mtime); useful if the thumbnail is much faster */
-int     do_enter_command; /* run qiv-command :enter on <Enter> */
-int     do_f_commands; /* run qiv-command :f1 etc on <F1> etc. */
-int     do_tag_error_pos; /* Move the cursor to tag error reported by qiv-command. */
-int     disable_grab; /* disable keyboard/mouse grabbing in fullscreen mode */
+gboolean do_assume_files; /* Assume that all images (command line or list) are files, don't stat them. */
+gboolean do_grab; /* grab keboard/pointer (default off) */
+gboolean do_omit_load_stat; /* omit the stat(2) system call at load_image time, don't track changes to the file (current_mtime); useful if the thumbnail is much faster */
+gboolean do_enter_command; /* run qiv-command :enter on <Enter> */
+gboolean do_f_commands; /* run qiv-command :f1 etc on <F1> etc. */
+gboolean do_tag_error_pos; /* Move the cursor to tag error reported by qiv-command. */
+gboolean disable_grab; /* disable keyboard/mouse grabbing in fullscreen mode */
 int	max_rand_num; /* the largest random number range we will ask for */
 int	fixed_window_size = 0; /* window width fixed size/off */
 int	fixed_zoom_factor = 0; /* window fixed zoom factor (percentage)/off */
