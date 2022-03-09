@@ -123,28 +123,18 @@ int copy2select()
   char *ptr, *filename = image_names[image_idx];
   char dstfile[FILENAME_LEN], dstfilebak[FILENAME_LEN], tmp[FILENAME_LEN], buf[BUFSIZ];
   int fdi, fdo, n, n2;
+  struct stat st;
+  int errno1;
 
   /* try to create something; if select_dir doesn't exist, create one */
-  snprintf(dstfile, sizeof dstfile, "%s/.qiv-select", select_dir);
-  if((n = open(dstfile, O_CREAT, 0666)) == -1) {
-    switch(errno) {
-      case EEXIST:
-        unlink(dstfile);
-        break;
-      case ENOTDIR:
-      case ENOENT:
-        if(mkdir(select_dir, 0777) == -1) {
-          g_print("*** Error: Cannot create select_dir '%s': %s\a\n", select_dir, strerror(errno));
-          return -1;
-        }
-        break;
-      default:
-        g_print("*** Error: Cannot open select_dir '%s': %s\a\n", select_dir, strerror(errno));
-        return -1;
+  if (0 != stat(select_dir, &st)) {
+    if (mkdir(select_dir, 0777) != 0 && (errno1 = errno, TRUE) && (stat(select_dir, &st) != 0 || !S_ISDIR(st.st_mode))) {
+      g_print("*** Error: Cannot create select_dir\a '%s': %s\n", select_dir, strerror(errno1));
+      return -1;
     }
-  } else {
-    close(n);
-    unlink(dstfile);
+  } else if (!S_ISDIR(st.st_mode)) {
+    g_print("*** Error: select_dir is not a directory\a: %s\n", select_dir);
+    return -1;
   }
 
   if((ptr = strrchr(filename, '/')) != NULL) {   /* search rightmost slash */
