@@ -908,7 +908,7 @@ static void update_win_title(qiv_image *q) {
   if (isnan(q->elapsed)) {
     *elapsed_msg = '\0';
   } else {
-    g_snprintf(elapsed_msg, sizeof elapsed_msg, "%1.01fs ", q->elapsed);
+    g_snprintf(elapsed_msg, sizeof elapsed_msg, "%1.03fs ", q->elapsed);
   }
   if (q->real_w == -1) {
     /* Showing thumbnail, real image missing or unloadable. */
