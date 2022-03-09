@@ -165,13 +165,14 @@ int copy2select()
   }
 
   fdi = open(filename, O_RDONLY);
-  fdo = open(dstfile, O_CREAT | O_WRONLY, 0666);
-  if(fdi == -1 || fdo == -1) {
+  fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY, 0666) : -1;
+  if (fdo == -1) {
     g_print("*** Error: Could not copy file: '%s'\a\n", strerror(errno));
+  } else {
+    while((n = read(fdi, buf, BUFSIZ)) > 0) (void)!write(fdo, buf, n);
   }
-  while((n = read(fdi, buf, BUFSIZ)) > 0) (void)!write(fdo, buf, n);
-  close(fdi);
   close(fdo);
+  close(fdi);
 
   return 0;
 }
