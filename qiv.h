@@ -75,6 +75,7 @@ typedef struct _qiv_image {
   int drag_win_x, drag_win_y; /* position of win at drag start */
 //  char        infotext[BUF_LEN];
   gchar win_title_no_infotext[BUF_LEN];
+  double elapsed;  /* number of seconds the last image load took */
   gint text_w, text_h;
 } qiv_image;
 

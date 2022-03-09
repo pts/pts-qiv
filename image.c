@@ -902,13 +902,13 @@ void reset_coords(qiv_image *q)
   }
 }
 
-static void update_win_title(qiv_image *q, const char *image_name, double elapsed) {
+static void update_win_title(qiv_image *q) {
   char dimen_msg[sizeof(gint) * 6 + 8];
   char elapsed_msg[16];
-  if (isnan(elapsed)) {
+  if (isnan(q->elapsed)) {
     *elapsed_msg = '\0';
   } else {
-    g_snprintf(elapsed_msg, sizeof elapsed_msg, "%1.01fs ", elapsed);
+    g_snprintf(elapsed_msg, sizeof elapsed_msg, "%1.01fs ", q->elapsed);
   }
   if (q->real_w == -1) {
     /* Showing thumbnail, real image missing or unloadable. */
@@ -923,7 +923,7 @@ static void update_win_title(qiv_image *q, const char *image_name, double elapse
   }
   g_snprintf(q->win_title_no_infotext, sizeof q->win_title_no_infotext,
              "qiv: %s %s %s%d%% [%d/%d] b%d/c%d/g%d ",
-             image_name, dimen_msg, elapsed_msg,
+             image_names[image_idx], dimen_msg, elapsed_msg,
              myround((1.0-(q->orig_w - q->win_w)/(double)q->orig_w)*100), image_idx+1, images,
              q->mod.brightness/8-32, q->mod.contrast/8-32, q->mod.gamma/8-32);
 }
@@ -1016,7 +1016,7 @@ void update_image_noflush(qiv_image *q, int mode) {
       setup_imlib_color_modifier(q->mod);
 
     if (mode == MOVED || mode == STATUSBAR) {
-      if (mode == MOVED) update_win_title(q, image_names[image_idx], NAN);
+      if (mode == MOVED) update_win_title(q);
       if (transparency && used_masks_before) {
         /* there should be a faster way to update the mask, but how? */
 	if (q->p)
@@ -1049,7 +1049,8 @@ void update_image_noflush(qiv_image *q, int mode) {
       gettimeofday(&after, 0);
       elapsed = ((after.tv_sec +  after.tv_usec / 1.0e6) -
                  (before.tv_sec + before.tv_usec / 1.0e6));
-      update_win_title(q, image_names[image_idx], load_elapsed + elapsed);
+      q->elapsed = load_elapsed + elapsed;
+      update_win_title(q);
 
 #ifdef DEBUG
       if (m)  g_print("*** image has transparency\n");
