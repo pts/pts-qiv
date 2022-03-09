@@ -49,7 +49,7 @@ int move2trash()
     /* find full path to file */
     *ptr = 0;
     if(!realpath(filename,path_result)) {
-      g_print("Error: realpath failure while moving file to trash\a\n");
+      g_print("Error: realpath failure while moving file to trash\n");
       *ptr = '/';
       return 1;
     }
@@ -72,7 +72,7 @@ int move2trash()
     *ptr = '\0';
     if(access(ptr2,F_OK)) {
       if(mkdir(ptr2,0700)) {
-        g_print("Error: Could not make directory '%s'\a\n",ptr2);
+        g_print("Error: Could not make directory '%s'\n",ptr2);
         return 1;
       }
     }
@@ -139,11 +139,11 @@ int copy2select()
   /* try to create something; if select_dir doesn't exist, create one */
   if (0 != stat(select_dir1, &st)) {
     if (mkdir(select_dir1, 0777) != 0 && (errno1 = errno, TRUE) && (stat(select_dir1, &st) != 0 || !S_ISDIR(st.st_mode))) {
-      g_print("*** Error: Cannot create select_dir\a '%s': %s\n", select_dir1, strerror(errno1));
+      g_print("*** Error: Cannot create select_dir '%s': %s\n", select_dir1, strerror(errno1));
       return -1;
     }
   } else if (!S_ISDIR(st.st_mode)) {
-    g_print("*** Error: select_dir is not a directory\a: %s\n", select_dir1);
+    g_print("*** Error: select_dir is not a directory: %s\n", select_dir1);
     return -1;
   }
 
@@ -167,7 +167,7 @@ int copy2select()
   /* Exactly the same file, no need to copy. */
   if (0 == strcmp(filename1, dstfile)) return 0;
   if (0 != stat(filename1, &st)) {
-    g_print("*** Error: source file does not exist\a: %s\n", filename1);
+    g_print("*** Error: source file does not exist: %s\n", filename1);
     return -1;
   }
 
@@ -182,7 +182,7 @@ int copy2select()
     len = strlen(dstfile);
     tmplen = strlen(tmp);
     if (len + tmplen >= sizeof(dstfilebak)) { too_long:
-      g_print("*** Error: destination filename too long\a: %s\n", dstfile);
+      g_print("*** Error: destination filename too long: %s\n", dstfile);
       return -1;
     }
     for (p = dstfile + len; p != dstfile && p[-1] != '/' && p[-1] != '.'; --p) {}
@@ -198,7 +198,7 @@ int copy2select()
       if (do_copy_link && st2.st_dev == st.st_dev && st2.st_ino == st.st_ino) return 0;
       /* Will rename foo.jpg to foo-2.jpg etc. */
       if (++c == 0) {
-        g_print("*** Error: too many destination files\a: %s\n", dstfile);
+        g_print("*** Error: too many destination files: %s\n", dstfile);
         return -1;
       }
       sprintf(tmp, "-%u", c);
@@ -218,7 +218,7 @@ int copy2select()
   fdi = open(filename1, O_RDONLY);
   fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY | O_TRUNC, 0666) : -1;
   if (fdo == -1) {
-    g_print("*** Error: Could not copy file: '%s'\a\n", strerror(errno));
+    g_print("*** Error: Could not copy file: '%s'\n", strerror(errno));
   } else {
     while((n = read(fdi, buf, BUFSIZ)) > 0) (void)!write(fdo, buf, n);
   }
@@ -240,19 +240,19 @@ int undelete_image()
     return 0;
 
   if (!deleted_files) {
-    g_print("Error: nothing to undelete\a\n");
+    g_print("Error: nothing to undelete\n");
     return 1;
   }
   if (--delete_idx < 0)
     delete_idx = MAX_DELETE - 1;
   del = &deleted_files[delete_idx];
   if (!del->filename) {
-    g_print("Error: nothing to undelete\a\n");
+    g_print("Error: nothing to undelete\n");
     return 1;
   }
 
   if (rename(del->trashfile,del->filename) < 0) {
-    g_print("Error: undelete_image '%s' failed\a\n", del->filename);
+    g_print("Error: undelete_image '%s' failed\n", del->filename);
     del->filename = NULL;
     free(del->trashfile);
     return 1;

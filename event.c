@@ -1267,11 +1267,15 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
           case GDK_Delete:
           case 'd':
             if (!readonly) {
-              if (move2trash() == 0)
+              if (move2trash() == 0) {
                 snprintf(infotext, sizeof infotext, "(Deleted last image)");
-              else
-                snprintf(infotext, sizeof infotext, "(Delete FAILED)");
-              qiv_load_image(q);
+                qiv_load_image(q);
+              } else {
+                gdk_beep();
+                snprintf(infotext, sizeof infotext, "(Delete failed!)");
+                update_win_title_to_nonload(q);
+                update_image(q, STATUSBAR);
+              }
             }
             break;
 
@@ -1279,11 +1283,15 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
 
           case 'u':
             if (!readonly) {
-              if (undelete_image() == 0)
+              if (undelete_image() == 0) {
                 snprintf(infotext, sizeof infotext, "(Undeleted)");
-              else
-                snprintf(infotext, sizeof infotext, "(Undelete FAILED)");
-              qiv_load_image(q);
+                qiv_load_image(q);
+              } else {
+                gdk_beep();
+                snprintf(infotext, sizeof infotext, "(Undelete failed!)");
+                update_win_title_to_nonload(q);
+                update_image(q, STATUSBAR);
+              }
             }
             break;
 
@@ -1295,6 +1303,7 @@ void qiv_handle_event(GdkEvent *ev, gpointer data)
               next_image(1);
               qiv_load_image(q);
             } else {
+              gdk_beep();
               snprintf(infotext, sizeof infotext, "(Copy failed!)");
               update_win_title_to_nonload(q);
               update_image(q, STATUSBAR);
