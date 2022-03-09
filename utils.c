@@ -129,7 +129,7 @@ const char *lstrip_dotslash(const char *s) {
 int copy2select()
 {
   const char *ptr, *filename = image_names[image_idx];
-  char dstfile[FILENAME_LEN], dstfilebak[FILENAME_LEN], buf[BUFSIZ];
+  char dstfile[FILENAME_LEN], buf[BUFSIZ];
   int fdi, fdo, n;
   struct stat st, st2;
   int errno1;
@@ -174,7 +174,7 @@ int copy2select()
   /* If the file already exists, add as many .bak extensions as needed. */
   if (stat(dstfile, &st2) == 0) {
     unsigned c;
-    char tmp[sizeof(c) * 3 + 2], *p, *q;
+    char tmp[sizeof(c) * 3 + 2], *p, *q, dstfilebak[sizeof(dstfile)];
     size_t len, extlen, tmplen;
     /* If source and destination are the same file, then there is no need to copy. */
     if (do_copy_link && st2.st_dev == st.st_dev && st2.st_ino == st.st_ino) return 0;
@@ -197,7 +197,11 @@ int copy2select()
       /* If source and destination are the same file, then there is no need to copy. */
       if (do_copy_link && st2.st_dev == st.st_dev && st2.st_ino == st.st_ino) return 0;
       /* Will rename foo.jpg to foo-2.jpg etc. */
-      sprintf(tmp, "-%u", ++c);
+      if (++c == 0) {
+        g_print("*** Error: too many destination files\a: %s\n", dstfile);
+        return -1;
+      }
+      sprintf(tmp, "-%u", c);
       tmplen = strlen(tmp);
       if (len + tmplen >= sizeof(dstfilebak)) goto too_long;
       memcpy(q, tmp, tmplen);
@@ -206,14 +210,11 @@ int copy2select()
 #ifdef DEBUG
     g_print("*** renaming: '%s' to '%s'\n", dstfile, dstfilebak);
 #endif
-    /* FYI There is a race condition between the stat(...) above and the rename(...) below. */
-    if (rename(dstfile, dstfilebak) != 0) {
-      g_print("*** error renaming\a: '%s' to '%s': %s\n", dstfile, dstfilebak, strerror(errno));
-      return -1;
-    }
+    strcpy(dstfile, dstfilebak);
   }
 
   if (do_copy_link && 0 == link(filename1, dstfile)) return 0;
+  /* FYI There is a race condition between the stat(...) above and the open(...) below. */
   fdi = open(filename1, O_RDONLY);
   fdo = fdi >= 0 ? open(dstfile, O_CREAT | O_WRONLY | O_TRUNC, 0666) : -1;
   if (fdo == -1) {
