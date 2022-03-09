@@ -168,19 +168,31 @@ int copy2select()
   if (0 == strcmp(filename1, dstfile)) return 0;
 
   /* If the file already exists, add as many .bak extensions as needed. */
-  /* unlink(dstfile); */
   if (stat(dstfile, &st) == 0) {
-    size_t len = strlen(dstfile);
-    if (len + 5 > sizeof(dstfilebak)) { too_long:
+    unsigned c = 1;
+    char tmp[sizeof(c) * 3 + 2], *p, *q;
+    size_t len = strlen(dstfile), extlen, tmplen;
+    sprintf(tmp, "-%u", c);
+    tmplen = strlen(tmp);
+    if (len + tmplen >= sizeof(dstfilebak)) { too_long:
       g_print("*** Error: destination filename too long\a: %s\n", dstfile);
       return -1;
     }
-    memcpy(dstfilebak, dstfile, len);
-    for (;;) {
-      memcpy(dstfilebak + len, ".bak", 5);
-      len += 4;
-      if (stat(dstfilebak, &st) != 0) break;
-      if (len + 5 > sizeof(dstfilebak)) goto too_long;
+    for (p = dstfile + len; p != dstfile && p[-1] != '/' && p[-1] != '.'; --p) {}
+    /* Length of the filename extension of dstfile. */
+    extlen = (p == dstfile || p[-1] != '.') ? 0 : (dstfile + len - p) + 1;
+    p = dstfile + len - extlen;
+    /* Will rename foo.jpg to foo-1.jpg. */
+    memcpy(dstfilebak, dstfile, len - extlen);
+    memcpy(q = dstfilebak + (len - extlen), tmp, tmplen);
+    memcpy(q + tmplen, p, extlen + 1);  /* +1 for trailing '\0'. */
+    while (stat(dstfilebak, &st) == 0) {
+      /* Will rename foo.jpg to foo-2.jpg etc. */
+      sprintf(tmp, "-%u", ++c);
+      tmplen = strlen(tmp);
+      if (len + tmplen >= sizeof(dstfilebak)) goto too_long;
+      memcpy(q, tmp, tmplen);
+      memcpy(q + tmplen, p, extlen + 1);  /* +1 for trailing '\0'. */
     }
 #ifdef DEBUG
     g_print("*** renaming: '%s' to '%s'\n", dstfile, dstfilebak);
