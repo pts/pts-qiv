@@ -1201,6 +1201,7 @@ void update_image_noflush(qiv_image *q, int mode) {
     q->text_oh = q->text_h;
     q->statusbar_was_on = statusbar_fullscreen;
   }
+  if (m) g_object_unref(m);
 }
 
 void update_image(qiv_image *q, int mode) {
