@@ -257,6 +257,7 @@ static int get_image_dimensions_fast(
       /* printf("@%ld\n", ftell(f)); */
       if ((c = getc(f)) < 0) return -2;  /* Truncated. */
       if (c != 0xff) return -3;  /* Not a JPEG file, marker expected. */
+     read_m:
       if ((m = getc(f)) < 0) return -2;  /* Truncated. */
      start_jpeg:
       while (m == 0xff) {  /* Padding. */
@@ -285,6 +286,17 @@ static int get_image_dimensions_fast(
       } else {
         for (ss -= 2; ss > 0; --ss) {
           if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+        }
+        if (m == 0xfe) {  /* After COM segment. */
+          if ((c = getc(f)) < 0) return -2;  /* Truncated. */
+          if (c == 0xff) goto read_m;
+          /* Some buggy JPEG encoders add ? or \0\0 after the 0xfe (COM)
+           * marker. We will ignore those extra bytes.
+           */
+          if ((m = getc(f)) < 0) return -2;  /* Truncated. */
+          if (m == 0xff) goto start_jpeg;  /* Skip extra byte. */
+          if (c != 0 || m != 0) return -11;  /* Unexpected byte after extra byte. */
+          /* Skip 2 extra NUL bytes (c and m). */
         }
       }
     }
