@@ -71,7 +71,7 @@ LIBS      := $(shell pkg-config --libs gdk-2.0 imlib2) -lX11
 
 PROGRAM   = qiv
 OBJS      = main.o image.o event.o options.o utils.o xmalloc.o
-HEADERS   = qiv.h
+HEADERS   = qiv.h main.h xmalloc.h
 DEFINES   = $(patsubst %,-DEXTN_%, $(EXTNS)) \
             $(GETOPT_LONG) \
             -DSTATUSBAR_FONT='$(STATUSBAR_FONT)' \
