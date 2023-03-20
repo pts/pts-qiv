@@ -172,7 +172,7 @@ static void qiv_display_multiline_window(qiv_image *q, const char *infotextdispl
   mws2.is_displayed = mws2.is_clean = TRUE;
 
   if (infotextdisplay) {
-    has_infotext_changed = strcmp(q->infotext, infotextdisplay) != 0;
+    has_infotext_changed = strcmp(q->infotext ? q->infotext : "(null)", infotextdisplay) != 0;
     if (has_infotext_changed) {
       q->infotext = infotextdisplay;
     }
