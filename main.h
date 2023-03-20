@@ -86,7 +86,7 @@ const char *helpstrs[] =
     "0-9                  Run 'qiv-command <key> <current-img>'",
     "^<string><return>    Run 'qiv-command ^<string> <current-img>'",
     "?/F1                 show keys (in fullscreen mode)",
-    "F11/F12              in/decrease slideshow delay (1 second)",
+    "[/F11 | ]/F12        in|decrease slideshow delay (1 second)",
     "a/A                  copy current image to .qiv-select",
     "d/D/del              move picture to .qiv-trash",
     "u                    undelete the previously trashed image",
