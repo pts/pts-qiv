@@ -24,7 +24,7 @@ typedef enum QivMode {
   CONFIRM = 4,    /* Waiting for any keystoke (`Push any key...') while displaying message in multiline_window. */
 } QivMode;
 static QivMode qiv_mode;  /* NORMAL by default. */
-static char   jcmd[512];  /* Single-line text edit buffer used by both JUMP_EDIT and EXT_EDIT. Always '\0'-terminated. */
+static char   jcmd[1024];  /* Single-line text edit buffer used by both JUMP_EDIT and EXT_EDIT. Always '\0'-terminated. */
 static int    jsize;  /* Number of bytes in jcmd, excluding the trailing '\0', i.e. jsize == strlen(jcmd). */
 static int    jidx;  /* Cursor position (byte offset from beginning) in jcmd. 0 <= jidx <= jsize. */
 static const char *mess_buf[2] = { jcmd, NULL};
